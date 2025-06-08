@@ -9,7 +9,7 @@ import Lock from '@mui/icons-material/Lock';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState<string>('');

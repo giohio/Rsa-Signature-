@@ -1,0 +1,11 @@
+# Ignore .NET build outputs
+**/bin/
+**/obj/
+
+# Ignore Node build outputs and dependencies
+Front_Rsa/Rsa_web/node_modules
+Front_Rsa/Rsa_web/dist
+
+# Ignore git files
+.git
+.gitignore

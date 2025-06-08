@@ -11,7 +11,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface Signature { id: string; publicKey: string; createdAt: string; }
 
@@ -24,6 +24,7 @@ const Dashboard: React.FC = () => {
   const [selectedSignature, setSelectedSignature] = useState<Signature | null>(null);
   const [fileToSign, setFileToSign] = useState<File | null>(null);
   const [signedUrl, setSignedUrl] = useState<string>('');
+  const [signError, setSignError] = useState<string>('');
   const [fileToVerify, setFileToVerify] = useState<File | null>(null);
   const [verifyResult, setVerifyResult] = useState<{ isValid: boolean; message: string; fullName?: string; email?: string } | null>(null);
   const [message, setMessage] = useState<string>('');
@@ -59,7 +60,13 @@ const Dashboard: React.FC = () => {
   };
 
   const handleSign = async () => {
-    if (!fileToSign || !signId) { setMessage('Select file + key'); return; }
+    // Clear previous messages and state
+    setMessage('');
+    setVerifyResult(null);
+    setSignError('');
+    setSignedUrl('');
+    if (!fileToSign) { setSignError('Chọn file để ký'); return; }
+    if (!signId) { setSignError('Chọn chữ ký'); return; }
     try {
       const fd = new FormData();
       fd.append('UserId', localStorage.getItem('userId')!);
@@ -68,12 +75,35 @@ const Dashboard: React.FC = () => {
       const res = await axios.post(`${API_URL}/sign/sign-document`, fd, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       setSignedUrl(url);
+      setSignError('');
       setMessage('Document signed');
-    } catch { setMessage('Sign failed'); }
+    } catch (err: unknown) {
+      setSignedUrl('');
+      // Dịch mã lỗi HTTP sang tiếng Việt
+      let reason = 'Lỗi không xác định';
+      if (axios.isAxiosError(err) && err.response) {
+        const code = err.response.status;
+        const reasons: Record<number,string> = {
+          400: 'Yêu cầu không hợp lệ, chọn lại file đã được ký',
+          401: 'Chưa đăng nhập hoặc không hợp lệ',
+          403: 'Không có quyền truy cập',
+          404: 'Không tìm thấy tài nguyên',
+          500: 'Lỗi máy chủ',
+        };
+        reason = reasons[code] || `Mã lỗi ${code}`;
+      }
+      const errorMsg = `Ký thất bại: ${reason}`;
+      setSignError(errorMsg);
+      setMessage(errorMsg);
+    }
   };
 
   const handleVerify = async () => {
-    if (!fileToVerify || !signId) { setMessage('Select file + key'); return; }
+    // Clear previous messages and result
+    setMessage('');
+    setVerifyResult(null);
+    if (!fileToVerify) { setVerifyResult({ isValid: false, message: 'Chọn file để xác minh' }); return; }
+    if (!signId) { setVerifyResult({ isValid: false, message: 'Chọn chữ ký' }); return; }
     try {
       const fd = new FormData();
       fd.append('UserId', localStorage.getItem('userId')!);
@@ -82,7 +112,23 @@ const Dashboard: React.FC = () => {
       const res = await axios.post(`${API_URL}/sign/verify-signature`, fd);
       const { isValid, message, fullName, email } = res.data;
       setVerifyResult({ isValid, message, fullName, email });
-    } catch { setMessage('Verify failed'); }
+    } catch (err: unknown) {
+      // Dịch mã lỗi HTTP sang tiếng Việt
+      let reason = 'Lỗi không xác định';
+      if (axios.isAxiosError(err) && err.response) {
+        const code = err.response.status;
+        const reasons: Record<number,string> = {
+          400: 'Yêu cầu không hợp lệ',
+          401: 'Chưa đăng nhập hoặc không hợp lệ',
+          403: 'Không có quyền truy cập',
+          404: 'Không tìm thấy tài nguyên',
+          500: 'Lỗi máy chủ',
+        };
+        reason = reasons[code] || `Mã lỗi ${code}`;
+      }
+      const errorMsg = `Xác thực thất bại: ${reason}`;
+      setVerifyResult({ isValid: false, message: errorMsg });
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -151,14 +197,33 @@ const Dashboard: React.FC = () => {
         )}
       </Box>
       <Box component="main" sx={{ flexGrow: 1, bgcolor: 'grey.100', p: 4, overflow: 'auto' }}>
-        {message && <Alert severity="info" sx={{ mb: 2 }}>{message}</Alert>}
+        {message && (
+          <Alert
+            severity={
+              message.toLowerCase().includes('fail') || message.toLowerCase().includes('thất bại')
+                ? 'error'
+                : 'success'
+            }
+            sx={{ mb: 2 }}
+          >
+            {message}
+          </Alert>
+        )}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3,1fr)' }, gap: 4 }}>
           <Card variant="outlined">
             <CardHeader avatar={<EditIcon color="primary" />} title="Ký tài liệu" titleTypographyProps={{ variant: 'h6' }} />
             <CardContent>
               <TextField type="file" fullWidth sx={{ mt: 1 }} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileToSign(e.target.files?.[0] ?? null)} InputLabelProps={{ shrink: true }} />
               <Button variant="contained" fullWidth sx={{ mt: 2 }} onClick={handleSign}>KÝ</Button>
-              {signedUrl && <Button startIcon={<DownloadIcon />} href={signedUrl} download fullWidth sx={{ mt: 2 }}>TẢI XUỐNG</Button>}
+              {signedUrl && (
+                <>
+                  <Alert severity="success" sx={{ mt: 2 }}>Ký thành công</Alert>
+                  <Button startIcon={<DownloadIcon />} href={signedUrl} download fullWidth sx={{ mt: 2 }}>TẢI XUỐNG</Button>
+                </>
+              )}
+              {!signedUrl && signError && (
+                <Alert severity="error" sx={{ mt: 2 }}>{signError}</Alert>
+              )}
             </CardContent>
           </Card>
           <Card variant="outlined">
@@ -166,9 +231,12 @@ const Dashboard: React.FC = () => {
             <CardContent>
               <TextField type="file" fullWidth sx={{ mt: 1 }} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileToVerify(e.target.files?.[0] ?? null)} InputLabelProps={{ shrink: true }} />
               <Button variant="contained" fullWidth sx={{ mt: 2 }} onClick={handleVerify}>XÁC MINH</Button>
-              {verifyResult && (
-                <Card variant="outlined" sx={{ mt: 2, borderColor: verifyResult.isValid ? 'success.main' : 'error.main' }}>
-                  <CardHeader avatar={<VerifiedUserIcon color={verifyResult.isValid ? 'success' : 'error'} />} title={verifyResult.isValid ? 'Chữ ký hợp lệ' : verifyResult.message} titleTypographyProps={{ variant: 'h6' }} />
+              {verifyResult && verifyResult.isValid && (
+                <Alert severity="success" sx={{ mt: 2 }}>Xác thực thành công</Alert>
+              )}
+              {verifyResult && verifyResult.isValid && (
+                <Card variant="outlined" sx={{ mt: 2, borderColor: 'success.main' }}>
+                  <CardHeader avatar={<VerifiedUserIcon color="success" />} title="Chữ ký hợp lệ" titleTypographyProps={{ variant: 'h6' }} />
                   {verifyResult.fullName && (
                     <CardContent>
                       <Typography variant="subtitle2">Thông tin người ký</Typography>
@@ -177,6 +245,12 @@ const Dashboard: React.FC = () => {
                     </CardContent>
                   )}
                 </Card>
+              )}
+              {verifyResult && !verifyResult.isValid && (
+                <>
+                  <Alert severity="error" sx={{ mt: 2 }}>Xác thực thất bại</Alert>
+                  <Typography color="error" sx={{ mt: 1 }}>{verifyResult.message}</Typography>
+                </>
               )}
             </CardContent>
           </Card>

@@ -32,8 +32,16 @@ if (app.Environment.IsDevelopment())
 //{
 //    app.UseHttpsRedirection();
 //}
+
+// Serve SPA static files
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthorization();
 app.UseCors();
 app.MapControllers();
 
-app.Run($"http://localhost:5000");
+// SPA fallback to index.html
+app.MapFallbackToFile("index.html");
+
+app.Run();
