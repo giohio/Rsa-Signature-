@@ -572,13 +572,13 @@ namespace RsaSignApi.Services
                                             // Check if p and q are prime (simple check)
                                             if (!IsProbablyPrime(pBig) || !IsProbablyPrime(qBig))
                                             {
-                                                return (false, "Parameters p and q must be prime numbers", null!, null!);
+                                                return (false, "Tham số p và q phải là số nguyên tố", null!, null!);
                                             }
                                             
                                             // Check if n = p*q
                                             if (pBig * qBig != nBig)
                                             {
-                                                return (false, "Product of p and q doesn't equal n", null!, null!);
+                                                return (false, "Tích của p và q không bằng n", null!, null!);
                                             }
                                             
                                             // Calculate phi(n) = (p-1)*(q-1)
@@ -587,13 +587,13 @@ namespace RsaSignApi.Services
                                             // Check if e and phi are coprime
                                             if (BigInteger.GreatestCommonDivisor(eBig, phi) != 1)
                                             {
-                                                return (false, "e and phi(n) are not coprime", null!, null!);
+                                                return (false, "e và phi(n) không nguyên tố cùng nhau", null!, null!);
                                             }
                                             
                                             // Check if e*d ≡ 1 (mod phi(n))
                                             if ((eBig * dBig) % phi != 1)
                                             {
-                                                return (false, "e and d are not modular inverses", null!, null!);
+                                                return (false, "e và d không phải là nghịch đảo modulo phi(n)", null!, null!);
                                             }
                                         }
                                         else
@@ -606,21 +606,21 @@ namespace RsaSignApi.Services
                                             
                                             if (decrypted != testValue)
                                             {
-                                                return (false, "RSA key validation failed: e and d are not valid inverses", null!, null!);
+                                                return (false, "Khóa không hợp lệ, e và d không phải là nghịch đảo modulo phi(n)", null!, null!);
                                             }
                                         }
                                     }
                                     catch (Exception ex)
                                     {
-                                        return (false, $"Error validating RSA mathematical properties: {ex.Message}", null!, null!);
+                                        return (false, $"Lỗi khi xác thực khóa: {ex.Message}", null!, null!);
                                     }
                                 }
                                 
                                 // Keys are valid JSON format
-                                Console.WriteLine("Successfully validated JSON format keys");
+                                Console.WriteLine("Thành công xác thực khóa");
                             }
                             catch (JsonException ex) {
-                                return (false, $"Invalid key JSON format: {ex.Message}", null!, null!);
+                                return (false, $"Lỗi khi xác thực khóa: {ex.Message}", null!, null!);
                             }
                         }
                         else
@@ -641,7 +641,7 @@ namespace RsaSignApi.Services
                                 if (rsaParams.Modulus == null || rsaParams.Exponent == null || 
                                     rsaParams.D == null || rsaParams.P == null || rsaParams.Q == null)
                                 {
-                                    return (false, "Invalid RSA key parameters", null!, null!);
+                                    return (false, "Khoá không hợp lệ", null!, null!);
                                 }
                                 
                                 // Test encryption/decryption
@@ -656,18 +656,18 @@ namespace RsaSignApi.Services
                                     // Compare original and decrypted data
                                     if (!testData.SequenceEqual(decrypted))
                                     {
-                                        return (false, "RSA key validation failed: encryption/decryption test failed", null!, null!);
+                                        return (false, "Xác thực khóa RSA không thành công: kiểm tra mã hóa/giải mã không thành công", null!, null!);
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    return (false, $"RSA key validation failed during encryption test: {ex.Message}", null!, null!);
+                                    return (false, $"Xác thực khóa RSA không thành công trong quá trình kiểm tra mã hóa: {ex.Message}", null!, null!);
                                 }
                                 
                                 Console.WriteLine("Successfully validated Base64 format keys");
                             }
                             catch (Exception ex) {
-                                return (false, $"Invalid key format: {ex.Message}", null!, null!);
+                                return (false, $"Định dạng khóa không hợp lệ: {ex.Message}", null!, null!);
                             }
                         }
                     }
@@ -767,12 +767,12 @@ namespace RsaSignApi.Services
             try
             {
                 // Log to structured logger
-                _logger.LogInformation($"Signing file: {file.FileName}");
+                _logger.LogInformation($"Ký file: {file.FileName}");
 
                 // Direct terminal output for critical errors
                 if (file == null || file.Length == 0)
                 {
-                    string errorMsg = "ERROR: File is required for signing";
+                    string errorMsg = "LỖI: Cần có tệp để ký";
                     _errorOutput.WriteLine(errorMsg);
                     _logger.LogError(errorMsg);
                     return (false, errorMsg, null!, null!);
@@ -811,7 +811,7 @@ namespace RsaSignApi.Services
                     var keyResult = await GetKeyDetailsAsync(userId, signatureId);
                     if (!keyResult.Success || keyResult.Signature == null)
                     {
-                        return (false, $"Error retrieving signature: {keyResult.Message}", null!, null!);
+                        return (false, $"Lỗi khi lấy chữ ký: {keyResult.Message}", null!, null!);
                     }
                     
                     var sign = keyResult.Signature;
@@ -839,12 +839,12 @@ namespace RsaSignApi.Services
                             Array.Reverse(sigBytes); // Convert to big-endian
                             signature = Convert.ToBase64String(sigBytes);
                             
-                            return (true, "File signed successfully with manual parameters", signature, file.FileName);
+                            return (true, "Tệp được ký thành công với các tham số thủ công", signature, file.FileName);
                         }
                         catch (Exception ex)
                         {
                             Console.WriteLine($"Error signing with manual parameters: {ex.Message}");
-                            return (false, $"Error signing with manual parameters: {ex.Message}", null!, null!);
+                            return (false, $"Lỗi ký với các tham số thủ công: {ex.Message}", null!, null!);
                         }
                     }
                     // Check if it's a JSON format key
@@ -994,15 +994,15 @@ namespace RsaSignApi.Services
                     }
                     catch (Exception ex)
                     {
-                        return (false, $"Error signing with n, d parameters: {ex.Message}", null!, null!);
+                        return (false, $"Lỗi ký với tham số n, d: {ex.Message}", null!, null!);
                     }
                 }
                 else
                 {
-                    return (false, "No valid signing method provided. Either signatureId, privateKey, or n,d must be provided", null!, null!);
+                    return (false, "Không có phương thức ký hợp lệ nào được cung cấp. Phải cung cấp signatureId, PrivateKey hoặc n,d", null!, null!);
                 }
                 
-                return (false, "Failed to sign file with the provided parameters", null!, null!);
+                return (false, "Không thể ký vào tệp có tham số được cung cấp", null!, null!);
             }
             catch (Exception ex)
             {
@@ -1026,17 +1026,17 @@ namespace RsaSignApi.Services
         try
         {
             if (file == null || file.Length == 0)
-                return (false, "File is empty or invalid");
+                return (false, "Tệp trống hoặc không hợp lệ");
 
             if (string.IsNullOrEmpty(signature))
-                return (false, "Signature is empty");
+                return (false, "Chữ ký trống");
 
             if (string.IsNullOrEmpty(publicKey))
-                return (false, "Public key is empty");
+                return (false, "Khóa công khai trống");
 
             // Kiểm tra định dạng Base64 của chữ ký
             if (!IsValidBase64(signature))
-                return (false, "Signature is not valid Base64 format");
+                return (false, "Chữ ký không hợp lệ ở định dạng Base64");
 
             // Đọc nội dung file
             byte[] fileBytes;
@@ -1066,7 +1066,7 @@ namespace RsaSignApi.Services
                 {
                     var keyObj = JsonSerializer.Deserialize<Dictionary<string, string>>(publicKey);
                     if (keyObj == null || !keyObj.ContainsKey("e") || !keyObj.ContainsKey("n"))
-                        return (false, $"Invalid public key format: missing {(keyObj?.ContainsKey("e") == true ? "n" : "e")}");
+                        return (false, $"Định dạng khóa công khai không hợp lệ: thiếu {(keyObj?.ContainsKey("e") == true ? "n" : "e")}");
 
                     // Xác thực thủ công với e, n
                     var hashInt = new BigInteger(hashBytes, isUnsigned: true);

@@ -529,6 +529,28 @@ const Verify_file: React.FC = () => {
     }
   };
 
+  // Hàm để hiển thị nội dung chữ ký dạng rút gọn
+  const getSignaturePreview = (sig: string): string => {
+    if (!sig) return '';
+    if (sig.length <= 100) return sig;
+    return sig.substring(0, 50) + '...' + sig.substring(sig.length - 50);
+  };
+
+  // Hàm để hiển thị nội dung khóa công khai dạng rút gọn
+  const getPublicKeyPreview = (key: string): string => {
+    if (!key) return '';
+    
+    // Nếu là JSON, hiển thị dạng đẹp hơn
+    try {
+      const jsonObj = JSON.parse(key);
+      return JSON.stringify(jsonObj, null, 2).substring(0, 200) + (JSON.stringify(jsonObj, null, 2).length > 200 ? '...' : '');
+    } catch {
+      // Nếu không phải JSON, hiển thị dạng rút gọn
+      if (key.length <= 100) return key;
+      return key.substring(0, 50) + '...' + key.substring(key.length - 50);
+    }
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
@@ -635,18 +657,19 @@ const Verify_file: React.FC = () => {
             {!isEmbedded && (
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
                 <Box sx={{ flex: 1 }}>
-                  <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#fafafa' }}>
+                  <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#fafafa', display: 'flex', flexDirection: 'column' }}>
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                       <CreateIcon sx={{ mr: 1, color: 'primary.main' }} />
                       Chữ ký số
                     </Typography>
                     
-                    <FormControl fullWidth sx={{ mb: 2 }}>
+                    <FormControl sx={{ mb: 2 }}>
                       <InputLabel>Cách nhập chữ ký</InputLabel>
                       <Select
                         value={signatureSource}
                         onChange={(e) => setSignatureSource(e.target.value as 'paste' | 'file')}
                         label="Cách nhập chữ ký"
+                        size="small"
                       >
                         <MenuItem value="paste">Nhập trực tiếp</MenuItem>
                         <MenuItem value="file">Tải từ file</MenuItem>
@@ -667,7 +690,7 @@ const Verify_file: React.FC = () => {
                         InputProps={{ sx: { fontFamily: 'monospace' } }}
                       />
                     ) : (
-                      <Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                         <input
                           type="file"
                           ref={signatureFileInputRef}
@@ -679,20 +702,45 @@ const Verify_file: React.FC = () => {
                           variant="outlined"
                           startIcon={<UploadFileIcon />}
                           onClick={() => signatureFileInputRef.current?.click()}
-                          fullWidth
-                          sx={{ mb: 2 }}
+                          size="small"
+                          sx={{ mb: 1 }}
                         >
                           Chọn file chữ ký
                         </Button>
                         {signatureFileName && (
-                          <Chip
-                            label={signatureFileName}
-                            onDelete={() => {
-                              setSignatureFileName('');
-                              setSignature('');
-                            }}
-                            sx={{ mt: 1 }}
-                          />
+                          <>
+                            <Chip
+                              label={signatureFileName}
+                              onDelete={() => {
+                                setSignatureFileName('');
+                                setSignature('');
+                              }}
+                              size="small"
+                              sx={{ mb: 1 }}
+                            />
+                            {signature && (
+                              <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f0f0f0', borderRadius: 1, flex: 1, minHeight: 0 }}>
+                                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                                  Nội dung chữ ký:
+                                </Typography>
+                                <Box 
+                                  sx={{ 
+                                    p: 1, 
+                                    bgcolor: '#fff', 
+                                    borderRadius: 1, 
+                                    height: '100px', 
+                                    overflow: 'auto',
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.75rem',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all'
+                                  }}
+                                >
+                                  {getSignaturePreview(signature)}
+                                </Box>
+                              </Paper>
+                            )}
+                          </>
                         )}
                       </Box>
                     )}
@@ -700,18 +748,19 @@ const Verify_file: React.FC = () => {
                 </Box>
 
                 <Box sx={{ flex: 1 }}>
-                  <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#fafafa' }}>
+                  <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#fafafa', display: 'flex', flexDirection: 'column' }}>
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                       <KeyIcon sx={{ mr: 1, color: 'primary.main' }} />
                       Khóa công khai
                     </Typography>
                     
-                    <FormControl fullWidth sx={{ mb: 2 }}>
+                    <FormControl sx={{ mb: 2 }}>
                       <InputLabel>Cách nhập khóa công khai</InputLabel>
                       <Select
                         value={publicKeySource}
                         onChange={(e) => setPublicKeySource(e.target.value as 'select' | 'file')}
                         label="Cách nhập khóa công khai"
+                        size="small"
                       >
                         <MenuItem value="select">Chọn từ danh sách</MenuItem>
                         <MenuItem value="file">Tải từ file</MenuItem>
@@ -719,12 +768,13 @@ const Verify_file: React.FC = () => {
                     </FormControl>
                     
                     {publicKeySource === 'select' ? (
-                      <FormControl fullWidth>
+                      <FormControl>
                         <InputLabel>Chọn chữ ký</InputLabel>
                         <Select
                           value={selectedSignatureId}
                           onChange={handleSignatureChange_Select as any}
                           label="Chọn chữ ký"
+                          size="small"
                         >
                           {signatures.map(sig => (
                             <MenuItem key={sig.id} value={sig.id}>
@@ -734,7 +784,7 @@ const Verify_file: React.FC = () => {
                         </Select>
                       </FormControl>
                     ) : (
-                      <Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                         <input
                           type="file"
                           ref={publicKeyFileInputRef}
@@ -746,20 +796,45 @@ const Verify_file: React.FC = () => {
                           variant="outlined"
                           startIcon={<UploadFileIcon />}
                           onClick={() => publicKeyFileInputRef.current?.click()}
-                          fullWidth
-                          sx={{ mb: 2 }}
+                          size="small"
+                          sx={{ mb: 1 }}
                         >
                           Chọn file khóa công khai
                         </Button>
                         {publicKeyFileName && (
-                          <Chip
-                            label={publicKeyFileName}
-                            onDelete={() => {
-                              setPublicKeyFileName('');
-                              setPublicKey('');
-                            }}
-                            sx={{ mt: 1 }}
-                          />
+                          <>
+                            <Chip
+                              label={publicKeyFileName}
+                              onDelete={() => {
+                                setPublicKeyFileName('');
+                                setPublicKey('');
+                              }}
+                              size="small"
+                              sx={{ mb: 1 }}
+                            />
+                            {publicKey && (
+                              <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f0f0f0', borderRadius: 1, flex: 1, minHeight: 0 }}>
+                                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                                  Nội dung khóa công khai:
+                                </Typography>
+                                <Box 
+                                  sx={{ 
+                                    p: 1, 
+                                    bgcolor: '#fff', 
+                                    borderRadius: 1, 
+                                    height: '100px', 
+                                    overflow: 'auto',
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.75rem',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all'
+                                  }}
+                                >
+                                  {getPublicKeyPreview(publicKey)}
+                                </Box>
+                              </Paper>
+                            )}
+                          </>
                         )}
                       </Box>
                     )}
