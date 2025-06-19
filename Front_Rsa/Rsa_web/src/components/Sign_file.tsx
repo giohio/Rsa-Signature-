@@ -64,6 +64,9 @@ const Sign_file: React.FC = () => {
   const [useEmbeddedSign, setUseEmbeddedSign] = useState<boolean>(false);
   const [signedFileUrl, setSignedFileUrl] = useState<string>('');
 
+  // Trong phần khai báo biến state, thêm state cho việc xem trước ảnh
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   // Fetch signatures on component mount
 
   
@@ -99,6 +102,7 @@ const Sign_file: React.FC = () => {
       setFileToSign(file);
       setFileName(file.name);
       setError(null);
+      setImagePreview(null); // Reset image preview
       
       // Giới hạn kích thước file
       if (file.size > 10 * 1024 * 1024) { // 10MB
@@ -150,9 +154,31 @@ const Sign_file: React.FC = () => {
         // Đối với Excel, hiển thị thông tin
         setFileContent(`[Excel Document] - ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
         showNotification('Đã tải file Excel thành công', 'success');
+      } else if (file.type.includes('image/') ||
+                ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].some(ext => 
+                  file.name.toLowerCase().endsWith(ext))) {
+        // Xử lý file ảnh
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const content = e.target?.result as string;
+            setImagePreview(content);
+            setFileContent(`[Image] - ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+            showNotification('Đã tải ảnh thành công', 'success');
+          } catch (error) {
+            console.error('Error reading image file:', error);
+            setFileContent('Không thể đọc nội dung ảnh.');
+            showNotification('Không thể đọc nội dung ảnh', 'error');
+          }
+        };
+        reader.onerror = () => {
+          setFileContent('Lỗi: Không thể đọc file.');
+          showNotification('Lỗi đọc file', 'error');
+        };
+        reader.readAsDataURL(file);
       } else {
         // Kiểm tra xem có phải file có thể ký không
-        const validExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv', '.json', '.md'];
+        const validExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv', '.json', '.md', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
         const extension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
         
         if (!validExtensions.includes(extension)) {
@@ -858,7 +884,7 @@ const Sign_file: React.FC = () => {
                 ref={fileInputRef}
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.json,.csv"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.json,.csv,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.tif,.ico,.webp"
               />
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 2 }}>
                   <FileUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
@@ -868,10 +894,10 @@ const Sign_file: React.FC = () => {
                 onClick={() => fileInputRef.current?.click()}
                     sx={{ mb: 1 }}
               >
-                Chọn file văn bản để ký
+                Chọn file hoặc ảnh để ký
               </Button>
                   <Typography variant="body2" color="textSecondary">
-                    Hỗ trợ: PDF, Word, Excel, Text, và các định dạng văn bản khác
+                    Hỗ trợ: PDF, Word, Excel, Text, và các định dạng ảnh (JPG, PNG, GIF...)
                   </Typography>
                 </Box>
               
@@ -891,7 +917,45 @@ const Sign_file: React.FC = () => {
                   </Paper>
               )}
               
-              {fileContent && (
+              {imagePreview && (
+                <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f8f8', textAlign: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Xem trước ảnh:
+                    </Typography>
+                    <Chip 
+                      label="Xem trước ảnh"
+                      size="small" 
+                      color="primary" 
+                      variant="outlined"
+                      sx={{ ml: 1, fontSize: '0.7rem' }}
+                    />
+                  </Box>
+                  <Box 
+                    sx={{ 
+                      maxWidth: '100%',
+                      maxHeight: '300px',
+                      overflow: 'auto',
+                      display: 'flex',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      style={{ 
+                        maxWidth: '100%', 
+                        maxHeight: '300px', 
+                        objectFit: 'contain',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '4px'
+                      }} 
+                    />
+                  </Box>
+                </Paper>
+              )}
+              
+              {fileContent && !imagePreview && (
                   <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f8f8', maxHeight: '300px', overflow: 'auto' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                       <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
