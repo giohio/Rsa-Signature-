@@ -44,18 +44,18 @@ namespace RsaSignApi.Services
         public async Task<(bool Success, string Message, string PublicKey, string PrivateKey, string SignId)> GenerateKeysAsync(GenerateKeyModel model)
         {
             if (model.KeySize < 2048)
-                return (false, "Key size must be at least 2048 bits", null, null, null);
+                return (false, "Độ dài khóa tối thiểu là 2048 bit", null, null, null);
 
             using var rsa = RSA.Create(model.KeySize);
             var pub = Convert.ToBase64String(rsa.ExportRSAPublicKey());
             var priv = Convert.ToBase64String(rsa.ExportRSAPrivateKey());
 
             var user = await _context.Users.Find(u => u.Id == model.UserId).FirstOrDefaultAsync();
-            if (user == null) return (false, "User not found", null, null, null);
+            if (user == null) return (false, "Không tìm thấy người dùng", null, null, null);
 
             // Generate keys but DO NOT save them to database yet
             // Frontend will call save-key-pair endpoint later to save
-            return (true, "Keys generated", pub, priv, null);
+            return (true, "Tạo khóa thành công", pub, priv, null);
         }
 
         public async Task<(bool Success, string Message, List<object> Signatures)> GetSignaturesAsync(string userId)
@@ -64,15 +64,15 @@ namespace RsaSignApi.Services
                 .Find(s => s.UserId == userId)
                 .Project(s => new { s.Id, s.PublicKey, s.CreatedAt, s.Email, s.FullName, s.SignatureName, s.SignatureType, s.IsActive })
                 .ToListAsync();
-            if (!sigs.Any()) return (false, "No signatures found", null);
-            return (true, "Retrieved", sigs.Cast<object>().ToList());
+            if (!sigs.Any()) return (false, "Không tìm thấy chữ ký", null);
+            return (true, "Đã truy xuất", sigs.Cast<object>().ToList());
         }
 
         public async Task<(bool Success, string Message)> DeleteSignatureAsync(string userId, string signId)
         {
             var res = await _context.Signs.DeleteOneAsync(s => s.Id == signId && s.UserId == userId);
-            if (res.DeletedCount == 0) return (false, "Not found or not yours");
-            return (true, "Deleted");
+            if (res.DeletedCount == 0) return (false, "Không tìm thấy hoặc không phải của bạn");
+            return (true, "Đã xóa");
         }
 
         public async Task<(bool Success, string Message, byte[] SignedFile, string FileName)> SignDocumentAsync(SignDocumentModel model)
@@ -83,19 +83,19 @@ namespace RsaSignApi.Services
                 if (string.IsNullOrWhiteSpace(model.UserId))
                 {
                     _logger.LogError("SignDocumentAsync: UserId is null or empty");
-                    return (false, "User ID is required", null, null);
+                    return (false, "Mã người dùng là bắt buộc", null, null);
                 }
 
                 if (string.IsNullOrWhiteSpace(model.SignId))
                 {
                     _logger.LogError("SignDocumentAsync: SignId is null or empty");
-                    return (false, "Signature ID is required", null, null);
+                    return (false, "Mã chữ ký là bắt buộc", null, null);
                 }
 
                 if (model.File == null || model.File.Length == 0)
                 {
                     _logger.LogError("SignDocumentAsync: File is null or empty");
-                    return (false, "File is required and cannot be empty", null, null);
+                    return (false, "Tệp là bắt buộc và không được để trống", null, null);
                 }
 
                 // Retrieve signature record
@@ -106,14 +106,14 @@ namespace RsaSignApi.Services
                 if (signRecord == null)
                 {
                     _logger.LogError($"SignDocumentAsync: No signature found. SignId: {model.SignId}, UserId: {model.UserId}");
-                    return (false, "Signature not found", null, null);
+                    return (false, "Không tìm thấy chữ ký", null, null);
                 }
 
                 // Validate private key
                 if (string.IsNullOrEmpty(signRecord.PrivateKey))
                 {
                     _logger.LogError($"SignDocumentAsync: No private key found for signature. SignId: {model.SignId}");
-                    return (false, "No private key found for this signature", null, null);
+                    return (false, "Không tìm thấy khóa riêng cho chữ ký này", null, null);
                 }
                 
                 // Retrieve user
@@ -124,7 +124,7 @@ namespace RsaSignApi.Services
                 if (user == null)
                 {
                     _logger.LogError($"SignDocumentAsync: User not found. UserId: {model.UserId}");
-                    return (false, "User not found", null, null);
+                    return (false, "Không tìm thấy người dùng", null, null);
                 }
 
                 // Read file content
@@ -139,7 +139,7 @@ namespace RsaSignApi.Services
                 if (fileBytes == null || fileBytes.Length == 0)
                 {
                     _logger.LogError("SignDocumentAsync: File content is empty after reading");
-                    return (false, "File content is empty", null, null);
+                    return (false, "Nội dung tệp trống", null, null);
                 }
                 
                 // File type validation
@@ -149,14 +149,14 @@ namespace RsaSignApi.Services
                 if (!supportedExtensions.Contains(ext))
                 {
                     _logger.LogError($"SignDocumentAsync: Unsupported file format: {ext}");
-                    return (false, $"Unsupported file format: {ext}", null, null);
+                    return (false, $"Định dạng tệp không được hỗ trợ: {ext}", null, null);
                 }
                 
                 // File size validation
                 if (fileBytes.Length > 10 * 1024 * 1024) // 10MB limit
                 {
                     _logger.LogError($"SignDocumentAsync: File size exceeds limit. Current size: {fileBytes.Length}");
-                    return (false, "File size exceeds 10MB limit", null, null);
+                    return (false, "Kích thước tệp vượt quá giới hạn 10MB", null, null);
                 }
 
                 // Branch for embedded or detached signature
@@ -179,7 +179,7 @@ namespace RsaSignApi.Services
                     catch (Exception ex)
                     {
                         _logger.LogError($"SignDocumentAsync: Failed to create certificate: {ex.Message}");
-                        return (false, $"Failed to create certificate: {ex.Message}", null, null);
+                        return (false, $"Không thể tạo chứng chỉ: {ex.Message}", null, null);
                     }
                     
                     // Process file based on extension
@@ -201,7 +201,7 @@ namespace RsaSignApi.Services
                     catch (Exception ex)
                     {
                         _logger.LogError($"SignDocumentAsync: Failed to convert to PDF: {ex.Message}");
-                        return (false, $"Failed to prepare document: {ex.Message}", null, null);
+                        return (false, $"Không thể chuẩn bị tài liệu: {ex.Message}", null, null);
                     }
                     
                     // Sign the PDF
@@ -214,7 +214,7 @@ namespace RsaSignApi.Services
                     catch (Exception ex)
                     {
                         _logger.LogError($"SignDocumentAsync: Failed to sign PDF: {ex.Message}");
-                        return (false, $"Failed to sign document: {ex.Message}", null, null);
+                        return (false, $"Không thể ký tài liệu: {ex.Message}", null, null);
                     }
                     
                     string newFilename = ext == ".pdf" 
@@ -222,7 +222,7 @@ namespace RsaSignApi.Services
                         : $"signed_{Path.GetFileNameWithoutExtension(model.File.FileName)}.pdf";
                     
                     _logger.LogInformation($"SignDocumentAsync: Document signed successfully. Output filename: {newFilename}");
-                    return (true, "Document signed successfully", signedPdf, newFilename);
+                    return (true, $"Ký tài liệu thành công: {newFilename}", signedPdf, newFilename);
                 }
                 else
                 {
@@ -250,19 +250,19 @@ namespace RsaSignApi.Services
                     var signatureBytes = rsa.SignHash(hashBytes, rsaHashAlgo, RSASignaturePadding.Pkcs1);
                     // Return signature as .sig file
                     string sigFileName = $"{Path.GetFileNameWithoutExtension(model.File.FileName)}.sig";
-                    return (true, "Detached signature generated successfully", signatureBytes, sigFileName);
+                    return (true, "Tạo chữ ký tách rời thành công", signatureBytes, sigFileName);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"SignDocumentAsync: Unexpected error. Exception: {ex.Message}");
-                return (false, $"Unexpected error: {ex.Message}", null, null);
+                return (false, $"Lỗi không xác định: {ex.Message}", null, null);
             }
         }
 
         public async Task<(bool Success, string Message, bool IsValid, string FullName, string Email)> VerifySignatureAsync(IFormFile file, IFormFile? originalFile = null, bool isEmbedded = true)
         {
-            if (file == null) return (false, "Signature file is required", false, null, null);
+            if (file == null) return (false, "Tệp chữ ký là bắt buộc", false, null, null);
 
             try
             {
@@ -281,13 +281,13 @@ namespace RsaSignApi.Services
                     var names = af.GetSignatureNames();
                     
                     if (!names.Any())
-                        return (true, "No signature found in PDF", false, null, null);
+                        return (true, "Không tìm thấy chữ ký trong PDF", false, null, null);
 
                     _logger.LogInformation($"Found {names.Count} signature(s) in PDF");
                     var pkcs7 = af.VerifySignature(names[0]);
                     
                     if (!pkcs7.Verify())
-                        return (true, "PDF signature is invalid", false, null, null);
+                        return (true, "Chữ ký PDF không hợp lệ", false, null, null);
 
                     var dotCert = new X509Certificate2(
                         DotNetUtilities.ToX509Certificate(pkcs7.SigningCertificate));
@@ -344,7 +344,7 @@ namespace RsaSignApi.Services
                 _logger.LogError($"Error verifying signature: {ex.Message}");
                 if (ex.InnerException != null)
                     _logger.LogError($"Inner exception: {ex.InnerException.Message}");
-                return (false, $"Error verifying signature: {ex.Message}", false, null, null);
+                return (false, $"Lỗi không xác định: {ex.Message}", false, null, null);
             }
         }
 
@@ -417,7 +417,7 @@ namespace RsaSignApi.Services
                 if (ex.InnerException != null)
                     _logger.LogError($"Inner exception: {ex.InnerException.Message}");
                 _logger.LogError($"Stack trace: {ex.StackTrace}");
-                throw new Exception($"Error in SignPdfBytes: {ex.Message}", ex);
+                throw new Exception($"Lỗi không xác định: {ex.Message}", ex);
             }
         }
 
@@ -461,7 +461,7 @@ namespace RsaSignApi.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error converting to PDF: {ex.Message}", ex);
+                throw new Exception($"Lỗi không xác định: {ex.Message}", ex);
             }
         }
 

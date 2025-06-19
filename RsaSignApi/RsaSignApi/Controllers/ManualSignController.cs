@@ -106,7 +106,7 @@ namespace RsaSignApi.Controllers
         public async Task<IActionResult> GenerateParams([FromQuery] int keySize = 2048)
         {
             if (keySize < 8) // Allow very small keys for educational purposes only
-                return BadRequest(new { error = "Key size must be at least 8 bits" });
+                return BadRequest(new { error = "Kích thước khóa phải ít nhất 8 bit" });
 
             var result = await _manualSignService.GenerateParamsAsync(keySize);
             if (!result.Success)
@@ -139,17 +139,17 @@ namespace RsaSignApi.Controllers
                 // Validate the request
                 if (string.IsNullOrEmpty(model.KeyFileContent))
                 {
-                    return BadRequest(new { error = "Key file content is required" });
+                    return BadRequest(new { error = "Nội dung tệp khóa là bắt buộc" });
                 }
                 
                 if (string.IsNullOrEmpty(model.UserId))
                 {
-                    return BadRequest(new { error = "User ID is required" });
+                    return BadRequest(new { error = "Mã người dùng là bắt buộc" });
                 }
                 
                 if (string.IsNullOrEmpty(model.SignatureName))
                 {
-                    return BadRequest(new { error = "Signature name is required" });
+                    return BadRequest(new { error = "Tên chữ ký là bắt buộc" });
                 }
                 
                 var result = await _manualSignService.ImportKeysFromFilesAsync(model);
@@ -170,7 +170,7 @@ namespace RsaSignApi.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in ImportKeys: {ex.Message}");
-                return BadRequest(new { error = $"Error importing keys: {ex.Message}" });
+                return BadRequest(new { error = $"Lỗi nhập khóa: {ex.Message}" });
             }
         }
 
@@ -178,7 +178,7 @@ namespace RsaSignApi.Controllers
         public async Task<IActionResult> ExportKeys([FromBody] ManualExportKeysModel model)
         {
             if (string.IsNullOrEmpty(model.UserId) || string.IsNullOrEmpty(model.SignId))
-                return BadRequest(new { error = "UserId and SignId are required" });
+                return BadRequest(new { error = "Mã người dùng và Mã chữ ký là bắt buộc" });
 
             try
             {
@@ -244,7 +244,7 @@ namespace RsaSignApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { error = $"Error exporting keys: {ex.Message}" });
+                return BadRequest(new { error = $"Lỗi xuất khóa: {ex.Message}" });
             }
         }
 
@@ -277,7 +277,7 @@ namespace RsaSignApi.Controllers
                 if (string.IsNullOrEmpty(n) || string.IsNullOrEmpty(e) || 
                     string.IsNullOrEmpty(d) || string.IsNullOrEmpty(data))
                 {
-                    return BadRequest(new { error = "Required parameters: n, e, d, data" });
+                    return BadRequest(new { error = "Các tham số bắt buộc: n, e, d, data" });
                 }
                 
                 var result = await _manualSignService.SignWithNEDAsync(n, e, d, data, hashAlgorithm);
@@ -293,7 +293,7 @@ namespace RsaSignApi.Controllers
             }
             catch (System.Exception ex)
             {
-                return BadRequest(new { error = $"Error processing request: {ex.Message}" });
+                return BadRequest(new { error = $"Lỗi xử lý yêu cầu: {ex.Message}" });
             }
         }
 
@@ -311,7 +311,7 @@ namespace RsaSignApi.Controllers
                     hashAlgorithm = hashElem.GetString() ?? "SHA256";
 
                 if (string.IsNullOrEmpty(privateKeyBase64) || string.IsNullOrEmpty(data))
-                    return BadRequest(new { error = "Required parameters: privateKey, data" });
+                    return BadRequest(new { error = "Các tham số bắt buộc: privateKey, data" });
 
                 var privateKeyBytes = Convert.FromBase64String(privateKeyBase64);
                 using var rsa = RSA.Create();
@@ -330,7 +330,7 @@ namespace RsaSignApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { error = $"Error signing with private key RSA: {ex.Message}" });
+                return BadRequest(new { error = $"Lỗi ký bằng khóa riêng RSA: {ex.Message}" });
             }
         }
 
@@ -342,11 +342,11 @@ namespace RsaSignApi.Controllers
                 Console.WriteLine($"Received sign-file request: userId={userId}, signatureId={signatureId}, hashAlgorithm={hashAlgorithm}, file={file?.FileName}");
                 
                 if (file == null || file.Length == 0)
-                    return BadRequest(new { error = "File is required" });
+                    return BadRequest(new { error = "Tệp là bắt buộc" });
 
                 if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(signatureId))
                 {
-                    return BadRequest(new { error = "UserId and signatureId are required" });
+                    return BadRequest(new { error = "Mã người dùng và mã chữ ký là bắt buộc" });
                 }
                 
                 var result = await _manualSignService.SignFileAsync(
@@ -373,7 +373,7 @@ namespace RsaSignApi.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in sign-file endpoint: {ex.Message}");
-                return BadRequest(new { error = $"Error processing request: {ex.Message}" });
+                return BadRequest(new { error = $"Lỗi xử lý yêu cầu: {ex.Message}" });
             }
         }
 
@@ -385,13 +385,13 @@ namespace RsaSignApi.Controllers
             [FromForm] string hashAlgorithm = "SHA256")
             {
                 if (file == null || file.Length == 0)
-                return BadRequest(new { error = "File is required" });
+                return BadRequest(new { error = "Tệp là bắt buộc" });
                 
                 if (string.IsNullOrEmpty(signature))
-                    return BadRequest(new { error = "Signature is required" });
+                    return BadRequest(new { error = "Chữ ký là bắt buộc" });
                 
                 if (string.IsNullOrEmpty(publicKey))
-                    return BadRequest(new { error = "Public key is required" });
+                    return BadRequest(new { error = "Khóa công khai là bắt buộc" });
                 
                 var result = await _manualSignService.VerifyFileSignatureAsync(
                 file, signature, publicKey, hashAlgorithm);
@@ -407,11 +407,11 @@ namespace RsaSignApi.Controllers
                 Console.WriteLine($"Received sign-file-and-download request: userId={userId}, signatureId={signatureId}, hashAlgorithm={hashAlgorithm}, file={file?.FileName}");
                 
                 if (file == null || file.Length == 0)
-                    return BadRequest(new { error = "File is required" });
+                    return BadRequest(new { error = "Tệp là bắt buộc" });
                 
                 if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(signatureId))
                 {
-                    return BadRequest(new { error = "UserId and signatureId are required" });
+                    return BadRequest(new { error = "Mã người dùng và mã chữ ký là bắt buộc" });
                 }
                 
                 var result = await _manualSignService.SignFileAsync(
@@ -437,7 +437,7 @@ namespace RsaSignApi.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in sign-file-and-download endpoint: {ex.Message}");
-                return BadRequest(new { error = $"Error processing request: {ex.Message}" });
+                return BadRequest(new { error = $"Lỗi xử lý yêu cầu: {ex.Message}" });
             }
         }
 

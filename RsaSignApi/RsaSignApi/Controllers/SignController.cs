@@ -42,11 +42,11 @@ namespace RsaSignApi.Controllers
         {
             var result = await _signService.GenerateKeysAsync(model);
             if (!result.Success)
-                return BadRequest(result.Message);
+                return BadRequest($"Lỗi: {result.Message}");
                 
             // Return both public and private keys for frontend display, and signal that the key has been saved
             return Ok(new { 
-                message = result.Message, 
+                message = $"Thành công: {result.Message}", 
                 publicKey = result.PublicKey,
                 privateKey = result.PrivateKey, // Add private key
                 signId = result.SignId, 
@@ -66,7 +66,7 @@ namespace RsaSignApi.Controllers
         {
             var result = await _signService.GetSignaturesAsync(userId);
             if (!result.Success)
-                return NotFound(result.Message);
+                return NotFound($"Không tìm thấy: {result.Message}");
             return Ok(new { message = result.Message, signatures = result.Signatures });
         }
 
@@ -76,7 +76,7 @@ namespace RsaSignApi.Controllers
         {
             var result = await _signService.DeleteSignatureAsync(userId, signId);
             if (!result.Success)
-                return NotFound(result.Message);
+                return NotFound($"Không tìm thấy: {result.Message}");
             return Ok(new { message = result.Message });
         }
 
@@ -121,20 +121,20 @@ namespace RsaSignApi.Controllers
             // Check for required fields manually
             if (string.IsNullOrEmpty(model.UserId))
             {
-                _logger.LogError("UserId is missing or empty");
-                return BadRequest("UserId is required");
+                _logger.LogError("Mã người dùng bị thiếu hoặc trống");
+                return BadRequest("Thiếu mã người dùng");
             }
             
             if (string.IsNullOrEmpty(model.SignId))
             {
-                _logger.LogError("SignId is missing or empty");
-                return BadRequest("SignId is required");
+                _logger.LogError("Mã chữ ký bị thiếu hoặc trống");
+                return BadRequest("Thiếu mã chữ ký");
             }
             
             if (model.File == null || model.File.Length == 0)
             {
-                _logger.LogError("File is missing or empty");
-                return BadRequest("File is required");
+                _logger.LogError("Tệp bị thiếu hoặc trống");
+                return BadRequest("Thiếu tệp để ký");
             }
             
             try
@@ -143,7 +143,7 @@ namespace RsaSignApi.Controllers
                 if (!result.Success)
                 {
                     _logger.LogError($"SignDocument failed: {result.Message}");
-                    return BadRequest(result.Message);
+                    return BadRequest($"Lỗi ký tài liệu: {result.Message}");
                 }
                 
                 _logger.LogInformation($"SignDocument succeeded, returning signed file: {result.FileName}");
@@ -153,7 +153,7 @@ namespace RsaSignApi.Controllers
             {
                 _logger.LogError($"SignDocument exception: {ex.Message}");
                 _logger.LogError($"Stack trace: {ex.StackTrace}");
-                return BadRequest($"Error: {ex.Message}");
+                return BadRequest($"Lỗi: {ex.Message}");
             }
         }
 
@@ -187,14 +187,14 @@ namespace RsaSignApi.Controllers
             
             if (model.File == null) 
             {
-                _logger.LogError("File is missing or empty");
-                return BadRequest("Signature file is required");
+                _logger.LogError("Tệp bị thiếu hoặc trống");
+                return BadRequest("Thiếu tệp chữ ký");
             }
             
             if (!model.IsEmbedded && model.OriginalFile == null)
             {
-                _logger.LogError("Original file is required for detached signature verification");
-                return BadRequest("Original file is required for detached signature verification");
+                _logger.LogError("Tệp gốc là bắt buộc để xác thực chữ ký tách rời");
+                return BadRequest("Thiếu tệp gốc để xác thực chữ ký tách rời");
             }
             
             try
@@ -207,14 +207,14 @@ namespace RsaSignApi.Controllers
                 if (!result.Success)
                 {
                     _logger.LogError($"VerifySignature failed: {result.Message}");
-                    return BadRequest(result.Message);
+                    return BadRequest($"Lỗi xác thực: {result.Message}");
                 }
                 
                 _logger.LogInformation($"VerifySignature result: Valid={result.IsValid}, FullName={result.FullName}, Email={result.Email}");
                 return Ok(new
                 {
                     isValid = result.IsValid,
-                    message = result.Message,
+                    message = $"Kết quả: {result.Message}",
                     fullName = result.FullName,
                     email = result.Email
                 });
@@ -223,7 +223,7 @@ namespace RsaSignApi.Controllers
             {
                 _logger.LogError($"VerifySignature exception: {ex.Message}");
                 _logger.LogError($"Stack trace: {ex.StackTrace}");
-                return BadRequest($"Error: {ex.Message}");
+                return BadRequest($"Lỗi: {ex.Message}");
             }
         }
     }

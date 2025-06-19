@@ -27,7 +27,7 @@ namespace RsaSignApi.Controllers
 
             var existingUser = await _context.Users.Find(u => u.Username == model.Username).FirstOrDefaultAsync();
             if (existingUser != null)
-                return BadRequest("Username already exists");
+                return BadRequest("Tên đăng nhập đã tồn tại");
 
             var passwordHash = HashPassword(model.Password);
             var user = new User
@@ -40,7 +40,7 @@ namespace RsaSignApi.Controllers
             };
 
             await _context.Users.InsertOneAsync(user);
-            return Ok(new { message = "User registered successfully" });
+            return Ok(new { message = "Đăng ký người dùng thành công" });
         }
 
         [HttpPost("login")]
@@ -48,9 +48,9 @@ namespace RsaSignApi.Controllers
         {
             var user = await _context.Users.Find(u => u.Username == model.Username).FirstOrDefaultAsync();
             if (user == null || !VerifyPassword(model.Password, user.PasswordHash))
-                return Unauthorized("Invalid username or password");
+                return Unauthorized("Tên đăng nhập hoặc mật khẩu không đúng");
 
-            return Ok(new { message = "Login successful", userId = user.Id, fullName = user.FullName });
+            return Ok(new { message = "Đăng nhập thành công", userId = user.Id, fullName = user.FullName });
         }
 
         [HttpGet("{id}")]
@@ -64,7 +64,7 @@ namespace RsaSignApi.Controllers
         [HttpGet("health")]
         public IActionResult HealthCheck()
         {
-            return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+            return Ok(new { status = "hoạt động", timestamp = DateTime.UtcNow });
         }
 
         private string HashPassword(string password)
