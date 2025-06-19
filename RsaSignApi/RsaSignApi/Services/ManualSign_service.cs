@@ -994,15 +994,15 @@ namespace RsaSignApi.Services
                     }
                     catch (Exception ex)
                     {
-                        return (false, $"Lỗi ký với tham số n, d: {ex.Message}", null!, null!);
+                        return (false, $"Error signing with n, d parameters: {ex.Message}", null!, null!);
                     }
                 }
                 else
                 {
-                    return (false, "Không có phương thức ký hợp lệ nào được cung cấp. Phải cung cấp signatureId, PrivateKey hoặc n,d", null!, null!);
+                    return (false, "No valid signing method provided. Either signatureId, privateKey, or n,d must be provided", null!, null!);
                 }
                 
-                return (false, "Không thể ký vào tệp có tham số được cung cấp", null!, null!);
+                return (false, "Failed to sign file with the provided parameters", null!, null!);
             }
             catch (Exception ex)
             {
@@ -1026,17 +1026,17 @@ namespace RsaSignApi.Services
         try
         {
             if (file == null || file.Length == 0)
-                return (false, "Tệp trống hoặc không hợp lệ");
+                return (false, "File is empty or invalid");
 
             if (string.IsNullOrEmpty(signature))
-                return (false, "Chữ ký trống");
+                return (false, "Signature is empty");
 
             if (string.IsNullOrEmpty(publicKey))
-                return (false, "Khóa công khai trống");
+                return (false, "Public key is empty");
 
             // Kiểm tra định dạng Base64 của chữ ký
             if (!IsValidBase64(signature))
-                return (false, "Chữ ký không hợp lệ ở định dạng Base64");
+                return (false, "Signature is not valid Base64 format");
 
             // Đọc nội dung file
             byte[] fileBytes;
@@ -1066,7 +1066,7 @@ namespace RsaSignApi.Services
                 {
                     var keyObj = JsonSerializer.Deserialize<Dictionary<string, string>>(publicKey);
                     if (keyObj == null || !keyObj.ContainsKey("e") || !keyObj.ContainsKey("n"))
-                        return (false, $"Định dạng khóa công khai không hợp lệ: thiếu {(keyObj?.ContainsKey("e") == true ? "n" : "e")}");
+                        return (false, $"Invalid public key format: missing {(keyObj?.ContainsKey("e") == true ? "n" : "e")}");
 
                     // Xác thực thủ công với e, n
                     var hashInt = new BigInteger(hashBytes, isUnsigned: true);
