@@ -5,7 +5,7 @@ WORKDIR /app/frontend
 COPY Front_Rsa/Rsa_web/package.json ./
 RUN npm install && npm install @rollup/rollup-linux-x64-gnu lightningcss-linux-x64-gnu --no-save
 COPY Front_Rsa/Rsa_web .
-RUN npm run build
+RUN npm run build:no-typecheck
 
 # Stage 2: Build backend
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS backend

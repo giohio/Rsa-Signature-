@@ -14,7 +14,6 @@ import DownloadIcon from '@mui/icons-material/Download';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MenuIcon from '@mui/icons-material/Menu';
 import LinkIcon from '@mui/icons-material/Link';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 const API_URL = '/api';
 

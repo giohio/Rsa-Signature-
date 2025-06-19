@@ -335,10 +335,8 @@ const Verify_file: React.FC = () => {
   };
 
   // Handle embedded signature toggle
-  const handleEmbeddedToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setIsEmbedded(event.target.checked);
-    // Reset verification result when changing verification mode
-    setVerificationResult(null);
+  const handleEmbeddedToggle = (_event: React.ChangeEvent<HTMLInputElement>) => {
+    setIsEmbedded(prev => !prev);
   };
 
   // Update the handleVerify function to use the embedded API
