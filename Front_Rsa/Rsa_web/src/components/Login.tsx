@@ -26,7 +26,7 @@ const Login: React.FC = () => {
       const response = await axios.post(`${API_URL}/user/login`, { username, password });
       localStorage.setItem('userId', response.data.userId);
       localStorage.setItem('fullName', response.data.fullName);
-      navigate('/dashboard');
+      navigate('/homepage');
     } catch {
       setError('Invalid username or password');
     }

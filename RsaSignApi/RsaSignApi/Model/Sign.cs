@@ -1,7 +1,7 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace RsaSignApi.Models
+namespace RsaSignApi.Model
 {
     public class Sign
     {
@@ -29,6 +29,33 @@ namespace RsaSignApi.Models
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; }
+        
+        [BsonElement("updatedAt")]
+        public DateTime? UpdatedAt { get; set; }
+
+        [BsonElement("signatureName")]
+        public string SignatureName { get; set; } = null!;
+
+        [BsonElement("signatureType")]
+        public string SignatureType { get; set; } = null!;
+
+        [BsonElement("isActive")]
+        public bool IsActive { get; set; } = true;
+        
+        [BsonElement("p")]
+        public string? P { get; set; }
+        
+        [BsonElement("q")]
+        public string? Q { get; set; }
+        
+        [BsonElement("e")]
+        public string? E { get; set; }
+        
+        [BsonElement("d")]
+        public string? D { get; set; }
+        
+        [BsonElement("n")]
+        public string? N { get; set; }
     }
     public class CertificateEntity
     {

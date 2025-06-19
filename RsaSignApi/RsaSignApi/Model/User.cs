@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace RsaSignApi.Models
+namespace RsaSignApi.Model
 {
     public class User
     {

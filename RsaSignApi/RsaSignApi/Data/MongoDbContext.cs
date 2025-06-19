@@ -1,5 +1,5 @@
 ﻿using MongoDB.Driver;
-using RsaSignApi.Models;
+using RsaSignApi.Model;
 
 namespace RsaSignApi.Data
 {

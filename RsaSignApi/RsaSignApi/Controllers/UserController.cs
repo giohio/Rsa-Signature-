@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using RsaSignApi.Models;
 using RsaSignApi.Data;
 using System.Security.Cryptography;
 using System.Text;
 using MongoDB.Driver; // Thêm namespace này
 using MongoDB.Driver.Linq; // Thêm namespace này để hỗ trợ Find và FirstOrDefaultAsync
+using RsaSignApi.Model;
 
 namespace RsaSignApi.Controllers
 {
@@ -59,6 +59,12 @@ namespace RsaSignApi.Controllers
             var user = await _context.Users.Find(u => u.Id == id).FirstOrDefaultAsync();
             if (user == null) return NotFound();
             return Ok(new { userId = user.Id, username = user.Username, fullName = user.FullName, email = user.Email });
+        }
+
+        [HttpGet("health")]
+        public IActionResult HealthCheck()
+        {
+            return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
         }
 
         private string HashPassword(string password)

@@ -6,6 +6,6 @@ export default defineConfig({
   plugins: [react()],
   build: { minify: 'esbuild' },
   server: {
-    proxy: { '/api': 'http://localhost:5000' }
+    proxy: { '/api': 'http://localhost:5235' }
   }
 })

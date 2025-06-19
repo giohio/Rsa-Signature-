@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  rsasign-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rsasign-api
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__MongoDB=mongodb://mongodb:27017
+      - MongoDB__DatabaseName=RsaSignDb
+      - MongoDB__ConnectionString=mongodb://mongodb:27017
+    depends_on:
+      - mongodb
+    networks:
+      - rsasign-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  mongodb:
+    image: mongo:6.0
+    container_name: rsasign-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=RsaSignDb
+    networks:
+      - rsasign-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/RsaSignDb --quiet
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  rsasign-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    driver: local 

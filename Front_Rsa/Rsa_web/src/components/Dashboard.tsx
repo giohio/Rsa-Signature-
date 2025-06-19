@@ -2,6 +2,8 @@ import * as React from 'react';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem, Paper, Button, Alert, Card, CardHeader, CardContent, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
+import { useNavigate } from 'react-router-dom';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -10,6 +12,8 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import DescriptionIcon from '@mui/icons-material/Description';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 
 const API_URL = '/api';
 
@@ -18,6 +22,7 @@ interface Signature { id: string; publicKey: string; createdAt: string; }
 type RawSignature = { Id: string; PublicKey: string; CreatedAt: string } | { id: string; publicKey: string; createdAt: string };
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [keySize, setKeySize] = useState<number>(2048);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [signId, setSignId] = useState<string>('');
@@ -198,17 +203,73 @@ const Dashboard: React.FC = () => {
       </Box>
       <Box component="main" sx={{ flexGrow: 1, bgcolor: 'grey.100', p: 4, overflow: 'auto' }}>
         {message && (
-          <Alert
-            severity={
-              message.toLowerCase().includes('fail') || message.toLowerCase().includes('thất bại')
-                ? 'error'
-                : 'success'
-            }
-            sx={{ mb: 2 }}
-          >
+          <Alert severity="info" sx={{ mb: 2 }}>
             {message}
           </Alert>
         )}
+
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                <DescriptionIcon sx={{ mr: 1 }} />
+                Ký văn bản
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Ký tài liệu với chữ ký số của bạn
+              </Typography>
+              <Button 
+                variant="contained" 
+                color="primary"
+                onClick={() => navigate('/sign_file')}
+                sx={{ mt: 'auto' }}
+              >
+                Đi đến trang ký văn bản
+              </Button>
+            </Paper>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                <VerifiedUserIcon sx={{ mr: 1 }} />
+                Xác thực văn bản
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Xác thực tính hợp lệ của chữ ký số trên tài liệu
+              </Typography>
+              <Button 
+                variant="contained" 
+                color="secondary"
+                onClick={() => navigate('/verify_file')}
+                sx={{ mt: 'auto' }}
+              >
+                Đi đến trang xác thực
+              </Button>
+            </Paper>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                <ManageAccountsIcon sx={{ mr: 1 }} />
+                Quản lý chữ ký
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Tạo, chỉnh sửa và quản lý các chữ ký số của bạn
+              </Typography>
+              <Button 
+                variant="contained" 
+                color="info"
+                onClick={() => navigate('/signatures')}
+                sx={{ mt: 'auto' }}
+              >
+                Đi đến quản lý chữ ký
+              </Button>
+            </Paper>
+          </Grid>
+        </Grid>
+
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3,1fr)' }, gap: 4 }}>
           <Card variant="outlined">
             <CardHeader avatar={<EditIcon color="primary" />} title="Ký tài liệu" titleTypographyProps={{ variant: 'h6' }} />

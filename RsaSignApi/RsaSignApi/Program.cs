@@ -1,11 +1,14 @@
 using RsaSignApi.Data;
 using Microsoft.Extensions.DependencyInjection;
+using RsaSignApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddSingleton<MongoDbContext>();
+builder.Services.AddScoped<ISignService, SignService>();
+builder.Services.AddScoped<IManualSignService, ManualSignService>();
 builder.Services.AddEndpointsApiExplorer();
 //builder.Services.AddSwaggerGen();
 

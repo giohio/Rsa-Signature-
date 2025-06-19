@@ -28,13 +28,35 @@ RUN apt-get update \
       libreoffice-core \
       libreoffice-writer \
       default-jre-headless \
+      curl \
  && rm -rf /var/lib/apt/lists/*
+
+# Tạo user không đặc quyền để chạy ứng dụng
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
 WORKDIR /app
 # Copy published backend to root
 COPY --from=backend /app/publish ./
 # Copy frontend build output into wwwroot
 COPY --from=frontend /app/frontend/dist ./wwwroot
 
-EXPOSE 80
+# Cấp quyền cho appuser
+RUN chown -R appuser:appuser /app
+
+# Thiết lập biến môi trường
 ENV ASPNETCORE_URLS=http://0.0.0.0:80
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_EnableDiagnostics=0
+ENV TZ=Asia/Ho_Chi_Minh
+
+# Thiết lập healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost/api/health || exit 1
+
+EXPOSE 80
+
+# Chuyển sang user không đặc quyền
+USER appuser
+
+# Thiết lập entry point
 ENTRYPOINT ["dotnet", "RsaSignApi.dll"]
