@@ -17,7 +17,7 @@
 
 ## Triển khai ứng dụng
 
-### Sử dụng Docker Compose
+### Sử dụng Docker
 
 1. Clone repository:
    ```bash
@@ -27,15 +27,15 @@
 
 2. Triển khai ứng dụng:
 
-   **Trên Linux/macOS:**
-   ```bash
-   chmod +x deploy.sh
-   ./deploy.sh
-   ```
-
    **Trên Windows (PowerShell):**
    ```powershell
-   .\deploy.ps1
+   .\run-docker.ps1
+   ```
+
+   **Trên Linux/macOS:**
+   ```bash
+   chmod +x run-docker.sh
+   ./run-docker.sh
    ```
 
 3. Truy cập ứng dụng tại: http://localhost:8080
@@ -56,6 +56,25 @@
 3. Dừng ứng dụng:
    ```bash
    docker-compose down
+   ```
+
+## Chạy ứng dụng không dùng Docker
+
+Để chạy ứng dụng trực tiếp mà không dùng Docker:
+
+1. **Trên Windows:**
+   ```
+   .\start-app.bat
+   ```
+   hoặc
+   ```
+   .\start-app.ps1
+   ```
+
+2. **Trên Linux/macOS:**
+   ```
+   chmod +x start-app.sh
+   ./start-app.sh
    ```
 
 ## Cấu hình
