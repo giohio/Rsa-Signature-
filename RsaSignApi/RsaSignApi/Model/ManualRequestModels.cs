@@ -145,6 +145,11 @@ namespace RsaSignApi.Model.RequestModels
         /// Hash algorithm to use (SHA256 or SHA512)
         /// </summary>
         public string HashAlgorithm { get; set; } = "SHA256";
+        
+        /// <summary>
+        /// Educational mode with small values (true) or production mode (false)
+        /// </summary>
+        public bool IsEducationalMode { get; set; } = false;
     }
 
     /// <summary>
@@ -159,9 +164,10 @@ namespace RsaSignApi.Model.RequestModels
         public string Data { get; set; } = string.Empty;
         
         /// <summary>
-        /// Key size in bits (minimum 2048)
+        /// Key size in bits
+        /// For educational mode: 0-100 (small values)
+        /// For production mode: 2048-8192 (secure values)
         /// </summary>
-        [Range(2048, 8192, ErrorMessage = "Key size must be at least 2048 bits")]
         public int KeySize { get; set; } = 2048;
         
         /// <summary>
@@ -186,6 +192,11 @@ namespace RsaSignApi.Model.RequestModels
         /// Hash algorithm to use (SHA256 or SHA512)
         /// </summary>
         public string HashAlgorithm { get; set; } = "SHA256";
+        
+        /// <summary>
+        /// Educational mode with small values (true) or production mode (false)
+        /// </summary>
+        public bool IsEducationalMode { get; set; } = false;
     }
 
     /// <summary>

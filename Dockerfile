@@ -21,15 +21,28 @@ RUN dotnet publish RsaSignApi.csproj -c Release -o /app/publish /p:GenerateAssem
 
 # Stage 3: Runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
-# Cài LibreOffice headless để convert Office → PDF (runtime)
+# Install LibreOffice and all necessary dependencies for PDF conversion
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libreoffice \
-      libreoffice-core \
       libreoffice-writer \
+      libreoffice-calc \
+      libreoffice-impress \
+      libreoffice-draw \
+      libreoffice-math \
+      libreoffice-base \
+      libreoffice-java-common \
       default-jre-headless \
+      fonts-liberation \
+      fonts-dejavu \
+      fontconfig \
       curl \
+      ca-certificates \
+ && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+# Create a directory for temporary files with proper permissions
+RUN mkdir -p /tmp/libreoffice-conversion && chmod 777 /tmp/libreoffice-conversion
 
 # Tạo user không đặc quyền để chạy ứng dụng
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -42,12 +55,18 @@ COPY --from=frontend /app/frontend/dist ./wwwroot
 
 # Cấp quyền cho appuser
 RUN chown -R appuser:appuser /app
+RUN chown -R appuser:appuser /tmp/libreoffice-conversion
 
 # Thiết lập biến môi trường
 ENV ASPNETCORE_URLS=http://0.0.0.0:80
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_EnableDiagnostics=0
 ENV TZ=Asia/Ho_Chi_Minh
+ENV HOME=/tmp/libreoffice-conversion
+ENV TMPDIR=/tmp/libreoffice-conversion
+
+# Verify LibreOffice installation
+RUN soffice --version
 
 # Thiết lập healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

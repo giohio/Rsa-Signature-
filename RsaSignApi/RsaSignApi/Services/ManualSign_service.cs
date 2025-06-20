@@ -11,6 +11,7 @@ using System.Text.Json;
 using MongoDB.Driver;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace RsaSignApi.Services
 {
@@ -59,7 +60,7 @@ namespace RsaSignApi.Services
         /// <summary>
         /// Generate RSA parameters p, q, e, d.
         /// </summary>
-        Task<(bool Success, string Message, string P, string Q, string E, string D)> GenerateParamsAsync(int keySize);
+        Task<(bool Success, string Message, string P, string Q, string E, string D)> GenerateParamsAsync(int keySize, bool isEducationalMode = false);
 
         /// <summary>
         /// Import keys from files.
@@ -207,33 +208,122 @@ namespace RsaSignApi.Services
         {
             if (string.IsNullOrEmpty(model.Data))
                 return (false, "Dữ liệu là null hoặc trống", null!, null!, null!);
-                
-            if (model.KeySize < 2048)
-                return (false, "Kích thước khóa phải ít nhất 2048 bit", null!, null!, null!);
-                
+            
             try
             {
-                using var rsa = RSA.Create(model.KeySize);
-                var parameters = rsa.ExportParameters(true);
+                // Kiểm tra kích thước khóa dựa vào chế độ
+                if (model.IsEducationalMode)
+                {
+                    // Chế độ học tập: giới hạn KeySize <= 100
+                    if (model.KeySize > 100)
+                    {
+                        model.KeySize = 100; // Đặt lại giá trị tối đa cho chế độ học tập
+                    }
+                }
+                else
+                {
+                    // Chế độ sản xuất: yêu cầu KeySize >= 2048
+                    if (model.KeySize < 2048)
+                    {
+                        return (false, "Kích thước khóa phải ít nhất 2048 bit cho chế độ sản xuất", null!, null!, null!);
+                    }
+                }
                 
-                // Convert parameters to BigInteger
-                var p = new BigInteger(parameters.P!, true, true);
-                var q = new BigInteger(parameters.Q!, true, true);
-                var e = new BigInteger(parameters.Exponent!, true, true);
-                var d = new BigInteger(parameters.D!, true, true);
-                var n = p * q;
+                BigInteger p, q, e, d, n, phi;
+                
+                // Chế độ học tập với các số nhỏ
+                if (model.IsEducationalMode)
+                {
+                    // Tạo các số nguyên tố nhỏ p, q trong khoảng 3-100 cho mục đích học tập
+                    Random rnd = new Random();
+                    
+                    // Tạo danh sách các số nguyên tố nhỏ từ 3 đến 100
+                    var primes = new List<int>();
+                    for (int i = 3; i <= 100; i++)
+                    {
+                        if (IsPrime(i))
+                            primes.Add(i);
+                    }
+                    
+                    // Chọn ngẫu nhiên 2 số nguyên tố khác nhau từ danh sách
+                    int primeIndex1 = rnd.Next(0, primes.Count);
+                    int primeIndex2;
+                    do
+                    {
+                        primeIndex2 = rnd.Next(0, primes.Count);
+                    } while (primeIndex1 == primeIndex2);
+                    
+                    p = primes[primeIndex1];
+                    q = primes[primeIndex2];
+                    
+                    // Tính n = p * q
+                    n = p * q;
+                    
+                    // Tính phi(n) = (p-1) * (q-1)
+                    phi = (p - 1) * (q - 1);
+                    
+                    // Chọn e sao cho 1 < e < phi(n) và gcd(e, phi(n)) = 1
+                    // Thử các giá trị phổ biến trước: 3, 5, 17, 65537
+                    int[] commonE = { 3, 5, 11, 17, 35, 257, 65537 };
+                    e = 0;
+                    
+                    foreach (int candidate in commonE)
+                    {
+                        if (candidate < phi && BigInteger.GreatestCommonDivisor(new BigInteger(candidate), phi) == 1)
+                        {
+                            e = candidate;
+                            break;
+                        }
+                    }
+                    
+                    // Nếu không tìm được e từ các giá trị phổ biến, tìm kiếm một giá trị khác
+                    if (e == 0)
+                    {
+                        for (int i = 3; i < 100; i += 2)
+                        {
+                            if (i < phi && BigInteger.GreatestCommonDivisor(new BigInteger(i), phi) == 1)
+                            {
+                                e = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // Chế độ bảo mật với RSA tiêu chuẩn
+                else
+                {
+                    using var rsa = RSA.Create(model.KeySize);
+                    var parameters = rsa.ExportParameters(true);
+                    
+                    // Convert parameters to BigInteger
+                    p = new BigInteger(parameters.P!, true, true);
+                    q = new BigInteger(parameters.Q!, true, true);
+                    e = new BigInteger(parameters.Exponent!, true, true);
+                    d = new BigInteger(parameters.D!, true, true);
+                    n = p * q;
+                    phi = (p - 1) * (q - 1);
+                }
+                
+                // Tính d = e^(-1) mod phi(n)
+                d = ModInverse(e, phi);
+                
+                _logger.LogInformation($"Generated RSA parameters: p={p}, q={q}, n={n}, phi={phi}, e={e}, d={d}");
                 
                 // Create JSON format keys that only use e, n, d
                 var publicKeyJson = JsonSerializer.Serialize(new Dictionary<string, string>
                 {
                     { "e", e.ToString() },
-                    { "n", n.ToString() }
+                    { "n", n.ToString() },
+                    { "p", p.ToString() },
+                    { "q", q.ToString() }
                 });
                 
                 var privateKeyJson = JsonSerializer.Serialize(new Dictionary<string, string>
                 {
                     { "d", d.ToString() },
-                    { "n", n.ToString() }
+                    { "n", n.ToString() },
+                    { "p", p.ToString() },
+                    { "q", q.ToString() }
                 });
                 
                 // Hash the data
@@ -265,11 +355,12 @@ namespace RsaSignApi.Services
                 Array.Reverse(sigBytes); // Convert to big-endian
                 var base64Signature = Convert.ToBase64String(sigBytes);
                 
-                return (true, "Tạo khóa và ký thành công", publicKeyJson, privateKeyJson, base64Signature);
+                string modeText = model.IsEducationalMode ? "học tập" : "sản xuất";
+                return (true, $"Tạo khóa thành công (chế độ {modeText}) với p={p}, q={q}, n={n}, e={e}, d={d}", publicKeyJson, privateKeyJson, base64Signature);
             }
             catch (Exception ex)
             {
-                return (false, $"Error in AutoSignData: {ex.Message}", null!, null!, null!);
+                return (false, $"Lỗi tạo khóa tự động: {ex.Message}", null!, null!, null!);
             }
         }
 
@@ -332,18 +423,28 @@ namespace RsaSignApi.Services
                 
                 var phi = (pBI - 1) * (qBI - 1);
                 
-                // Use 65537 as default e value (common practice)
-                BigInteger eBI = 65537;
+                // Tạo danh sách các giá trị e phổ biến để thử
+                var possibleE = new List<int> { 3, 5, 7, 11, 13, 17, 19, 23, 65537 };
                 
-                // If e is too large for phi, use a smaller value
-                if (eBI >= phi)
+                // Chọn ngẫu nhiên một giá trị e từ danh sách, ưu tiên các giá trị nhỏ hơn
+                Random rnd = new Random();
+                var shuffledE = possibleE.OrderBy(x => rnd.Next()).ToList();
+                
+                BigInteger eBI = 0;
+                foreach (var e in shuffledE)
                 {
-                    eBI = 3;
+                    // Nếu e nhỏ hơn phi và nguyên tố cùng nhau với phi
+                    if (e < phi && BigInteger.GreatestCommonDivisor(new BigInteger(e), phi) == 1)
+                    {
+                        eBI = e;
+                        break;
+                    }
                 }
                 
-                // Ensure e and phi are coprime
-                if (BigInteger.GreatestCommonDivisor(eBI, phi) != 1)
+                // Nếu không tìm được e từ danh sách, tìm một giá trị khác
+                if (eBI == 0)
                 {
+                    // Bắt đầu từ một số nhỏ và tìm kiếm
                     eBI = 3;
                     while (BigInteger.GreatestCommonDivisor(eBI, phi) != 1)
                     {
@@ -355,10 +456,10 @@ namespace RsaSignApi.Services
                     }
                 }
                 
-                // Calculate d as modular multiplicative inverse of e modulo phi
+                // Tính d là nghịch đảo modulo của e theo modulo phi
                 var dBI = ModInverse(eBI, phi);
                 
-                return (true, "Tạo giá trị e,d thành công", eBI.ToString(), dBI.ToString());
+                return (true, $"Tạo giá trị e={eBI}, d={dBI} thành công với phi(n)={phi}", eBI.ToString(), dBI.ToString());
             }
             catch (Exception ex)
             {
@@ -439,28 +540,104 @@ namespace RsaSignApi.Services
             }
         }
 
-        public async Task<(bool Success, string Message, string P, string Q, string E, string D)> GenerateParamsAsync(int keySize)
+        public async Task<(bool Success, string Message, string P, string Q, string E, string D)> GenerateParamsAsync(int keySize, bool isEducationalMode = false)
         {
-            if (keySize < 2048)
-                return (false, "Kích thước khóa phải ít nhất 2048 bit", null!, null!, null!, null!);
-
             try
             {
-                // Generate RSA parameters
-                using var rsa = RSA.Create(keySize);
-                var parameters = rsa.ExportParameters(true);
-                
-                // Convert parameters to BigInteger
-                var p = new BigInteger(parameters.P!, true, true);
-                var q = new BigInteger(parameters.Q!, true, true);
-                var e = new BigInteger(parameters.Exponent!, true, true);
-                var d = new BigInteger(parameters.D!, true, true);
-                
-                return (true, "Parameters generated successfully", 
-                    p.ToString(), 
-                    q.ToString(), 
-                    e.ToString(), 
-                    d.ToString());
+                // For educational purposes, generate small primes between 3-100
+                if (isEducationalMode)
+                {
+                    // Giới hạn kích thước khóa cho chế độ học tập
+                    if (keySize > 100)
+                    {
+                        keySize = 100;
+                    }
+                    
+                    Random rnd = new Random();
+                    
+                    // Tạo danh sách các số nguyên tố nhỏ từ 3 đến 100
+                    var primes = new List<int>();
+                    for (int i = 3; i <= 100; i++)
+                    {
+                        if (IsPrime(i))
+                            primes.Add(i);
+                    }
+                    
+                    // Chọn ngẫu nhiên 2 số nguyên tố khác nhau từ danh sách
+                    int primeIndex1 = rnd.Next(0, primes.Count);
+                    int primeIndex2;
+                    do
+                    {
+                        primeIndex2 = rnd.Next(0, primes.Count);
+                    } while (primeIndex1 == primeIndex2);
+                    
+                    BigInteger p = primes[primeIndex1];
+                    BigInteger q = primes[primeIndex2];
+                    
+                    // Tính phi(n) = (p-1) * (q-1)
+                    BigInteger phi = (p - 1) * (q - 1);
+                    
+                    // Chọn e sao cho 1 < e < phi(n) và gcd(e, phi(n)) = 1
+                    // Thử các giá trị phổ biến trước: 3, 5, 17
+                    int[] commonE = { 3, 5, 17 };
+                    BigInteger e = 0;
+                    
+                    foreach (int candidate in commonE)
+                    {
+                        if (candidate < phi && BigInteger.GreatestCommonDivisor(new BigInteger(candidate), phi) == 1)
+                        {
+                            e = candidate;
+                            break;
+                        }
+                    }
+                    
+                    // Nếu không tìm được e từ các giá trị phổ biến, tìm kiếm một giá trị khác
+                    if (e == 0)
+                    {
+                        for (int i = 3; i < 100; i += 2)
+                        {
+                            if (i < phi && BigInteger.GreatestCommonDivisor(new BigInteger(i), phi) == 1)
+                            {
+                                e = i;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Tính d = e^(-1) mod phi(n)
+                    BigInteger d = ModInverse(e, phi);
+                    
+                    _logger.LogInformation($"Generated small RSA parameters: p={p}, q={q}, phi={phi}, e={e}, d={d}");
+                    
+                    return (true, $"Tạo tham số thành công với p={p}, q={q}, e={e}, d={d}", 
+                        p.ToString(), 
+                        q.ToString(), 
+                        e.ToString(), 
+                        d.ToString());
+                }
+                // For production, use standard RSA key generation
+                else if (keySize >= 2048)
+                {
+                    // Generate RSA parameters
+                    using var rsa = RSA.Create(keySize);
+                    var parameters = rsa.ExportParameters(true);
+                    
+                    // Convert parameters to BigInteger
+                    var p = new BigInteger(parameters.P!, true, true);
+                    var q = new BigInteger(parameters.Q!, true, true);
+                    var e = new BigInteger(parameters.Exponent!, true, true);
+                    var d = new BigInteger(parameters.D!, true, true);
+                    
+                    return (true, "Parameters generated successfully", 
+                        p.ToString(), 
+                        q.ToString(), 
+                        e.ToString(), 
+                        d.ToString());
+                }
+                else
+                {
+                    return (false, "Kích thước khóa phải ≤ 100 (cho mục đích học tập) hoặc ≥ 2048 (cho mục đích bảo mật)", null!, null!, null!, null!);
+                }
             }
             catch (Exception ex)
             {
@@ -570,7 +747,7 @@ namespace RsaSignApi.Services
                                             BigInteger qBig = BigInteger.Parse(q);
                                             
                                             // Check if p and q are prime (simple check)
-                                            if (!IsProbablyPrime(pBig) || !IsProbablyPrime(qBig))
+                                            if (!IsPrime(pBig) || !IsPrime(qBig))
                                             {
                                                 return (false, "Tham số p và q phải là số nguyên tố", null!, null!);
                                             }
@@ -627,12 +804,12 @@ namespace RsaSignApi.Services
                         {
                             // Try to validate base64 format
                             try {
-                                var publicKeyBytes = Convert.FromBase64String(publicKey);
-                                var privateKeyBytes = Convert.FromBase64String(privateKey);
-                                
-                                using var rsa = RSA.Create();
-                                rsa.ImportRSAPublicKey(publicKeyBytes, out _);
-                                rsa.ImportRSAPrivateKey(privateKeyBytes, out _);
+                            var publicKeyBytes = Convert.FromBase64String(publicKey);
+                            var privateKeyBytes = Convert.FromBase64String(privateKey);
+                            
+                            using var rsa = RSA.Create();
+                            rsa.ImportRSAPublicKey(publicKeyBytes, out _);
+                            rsa.ImportRSAPrivateKey(privateKeyBytes, out _);
                                 
                                 // Additional validation for standard RSA keys
                                 var rsaParams = rsa.ExportParameters(true);
@@ -660,7 +837,7 @@ namespace RsaSignApi.Services
                                     }
                                 }
                                 catch (Exception ex)
-                                {
+                    {
                                     return (false, $"Xác thực khóa RSA không thành công trong quá trình kiểm tra mã hóa: {ex.Message}", null!, null!);
                                 }
                                 
@@ -724,15 +901,34 @@ namespace RsaSignApi.Services
                 byte[] dataBytes = System.Text.Encoding.UTF8.GetBytes(data);
                 byte[] hashBytes;
                 
-                if (hashAlgorithm?.ToUpper() == "SHA512")
+                // Support all four hash algorithms
+                switch (hashAlgorithm?.ToUpper())
                 {
-                    using var sha512 = SHA512.Create();
-                    hashBytes = sha512.ComputeHash(dataBytes);
-                }
-                else
-                {
-                    using var sha256 = SHA256.Create();
-                    hashBytes = sha256.ComputeHash(dataBytes);
+                    case "MD5":
+                        using (var md5 = MD5.Create())
+                        {
+                            hashBytes = md5.ComputeHash(dataBytes);
+                        }
+                        break;
+                    case "SHA1":
+                        using (var sha1 = SHA1.Create())
+                        {
+                            hashBytes = sha1.ComputeHash(dataBytes);
+                        }
+                        break;
+                    case "SHA512":
+                        using (var sha512 = SHA512.Create())
+                        {
+                            hashBytes = sha512.ComputeHash(dataBytes);
+                        }
+                        break;
+                    case "SHA256":
+                    default:
+                        using (var sha256 = SHA256.Create())
+                        {
+                            hashBytes = sha256.ComputeHash(dataBytes);
+                        }
+                        break;
                 }
                 
                 // Convert hash to BigInteger (ensure positive)
@@ -790,15 +986,33 @@ namespace RsaSignApi.Services
                 
                 // Hash the file content
                 byte[] hashBytes;
-                if (hashAlgorithm?.ToUpper() == "SHA512")
+                switch (hashAlgorithm?.ToUpper())
                 {
-                    using var sha512 = SHA512.Create();
-                    hashBytes = sha512.ComputeHash(fileBytes);
-                }
-                else
-                {
-                    using var sha256 = SHA256.Create();
-                    hashBytes = sha256.ComputeHash(fileBytes);
+                    case "MD5":
+                        using (var md5 = MD5.Create())
+                        {
+                            hashBytes = md5.ComputeHash(fileBytes);
+                        }
+                        break;
+                    case "SHA1":
+                        using (var sha1 = SHA1.Create())
+                        {
+                            hashBytes = sha1.ComputeHash(fileBytes);
+                        }
+                        break;
+                    case "SHA512":
+                        using (var sha512 = SHA512.Create())
+                        {
+                            hashBytes = sha512.ComputeHash(fileBytes);
+                        }
+                        break;
+                    case "SHA256":
+                    default:
+                        using (var sha256 = SHA256.Create())
+                        {
+                            hashBytes = sha256.ComputeHash(fileBytes);
+                        }
+                        break;
                 }
                 
                 // Determine signing method based on provided parameters
@@ -1021,120 +1235,120 @@ namespace RsaSignApi.Services
         /// Verify a file signature
         /// </summary>
         public async Task<(bool Success, string Message)> VerifyFileSignatureAsync(
-    IFormFile file, string signature, string publicKey, string hashAlgorithm = "SHA256")
-    {
-        try
+            IFormFile file, string signature, string publicKey, string hashAlgorithm = "SHA256")
         {
-            if (file == null || file.Length == 0)
-                return (false, "Tệp chữ ký là bắt buộc");
-
-            if (string.IsNullOrEmpty(signature))
-                return (false, "Chữ ký là bắt buộc");
-
-            if (string.IsNullOrEmpty(publicKey))
-                return (false, "Khóa công khai là bắt buộc");
-
-            // Kiểm tra định dạng Base64 của chữ ký
-            if (!IsValidBase64(signature))
-                return (false, "Chữ ký không đúng định dạng Base64");
-
-            // Đọc nội dung file
-            byte[] fileBytes;
-            using (var ms = new MemoryStream())
+            try
             {
-                await file.CopyToAsync(ms);
-                fileBytes = ms.ToArray();
-            }
-
-            // Băm nội dung file
-            byte[] hashBytes;
-            if (hashAlgorithm?.ToUpper() == "SHA512")
-            {
-                using var sha512 = SHA512.Create();
-                hashBytes = sha512.ComputeHash(fileBytes);
-            }
-            else
-            {
-                using var sha256 = SHA256.Create();
-                hashBytes = sha256.ComputeHash(fileBytes);
-            }
-
-            // Kiểm tra khóa công khai JSON
-            if (publicKey.StartsWith("{") && publicKey.EndsWith("}"))
-            {
-                try
+                if (file == null || file.Length == 0)
+                    return (false, "Cần có tệp để xác minh");
+                
+                if (string.IsNullOrEmpty(signature))
+                    return (false, "Chữ ký là bắt buộc");
+                
+                if (string.IsNullOrEmpty(publicKey))
+                    return (false, "Khóa công khai là bắt buộc");
+                
+                // Read the file contents
+                byte[] fileBytes;
+                using (var ms = new MemoryStream())
                 {
-                    var keyObj = JsonSerializer.Deserialize<Dictionary<string, string>>(publicKey);
-                    if (keyObj == null || !keyObj.ContainsKey("e") || !keyObj.ContainsKey("n"))
-                        return (false, $"Định dạng khóa công khai không hợp lệ: thiếu {(keyObj?.ContainsKey("e") == true ? "n" : "e")}");
-
-                    // Xác thực thủ công với e, n
-                    var hashInt = new BigInteger(hashBytes, isUnsigned: true);
-                    var nBI = BigInteger.Parse(keyObj["n"]);
-                    var eBI = BigInteger.Parse(keyObj["e"]);
-                    hashInt = hashInt % nBI;
-
-                    byte[] signatureBytes = Convert.FromBase64String(signature);
-                    Array.Reverse(signatureBytes);
-                    var signatureBI = new BigInteger(signatureBytes, isUnsigned: true);
-
-                    var decryptedHash = BigInteger.ModPow(signatureBI, eBI, nBI);
-                    bool isValid = decryptedHash.Equals(hashInt);
-
-                    return isValid
-                        ? (true, "Chữ ký tệp hợp lệ")
-                        : (false, $"Chữ ký tệp không hợp lệ. Giá trị băm hiện tại: {Convert.ToBase64String(hashBytes)}");
+                    await file.CopyToAsync(ms);
+                    fileBytes = ms.ToArray();
                 }
-                catch (Exception ex)
+                
+                // Hash the file content
+                byte[] hashBytes;
+                switch (hashAlgorithm?.ToUpper())
                 {
-                    return (false, $"Lỗi phân tích khóa JSON: {ex.Message}");
+                    case "MD5":
+                        using (var md5 = MD5.Create())
+                        {
+                            hashBytes = md5.ComputeHash(fileBytes);
+                        }
+                        break;
+                    case "SHA1":
+                        using (var sha1 = SHA1.Create())
+                        {
+                            hashBytes = sha1.ComputeHash(fileBytes);
+                        }
+                        break;
+                    case "SHA512":
+                        using (var sha512 = SHA512.Create())
+                        {
+                            hashBytes = sha512.ComputeHash(fileBytes);
+                        }
+                        break;
+                    case "SHA256":
+                    default:
+                        using (var sha256 = SHA256.Create())
+                        {
+                            hashBytes = sha256.ComputeHash(fileBytes);
+                        }
+                        break;
+                }
+                
+                // Kiểm tra khóa công khai JSON
+                if (publicKey.StartsWith("{") && publicKey.EndsWith("}"))
+                {
+                    try
+                    {
+                        var keyObj = JsonSerializer.Deserialize<Dictionary<string, string>>(publicKey);
+                        if (keyObj == null || !keyObj.ContainsKey("e") || !keyObj.ContainsKey("n"))
+                            return (false, $"Định dạng khóa công khai không hợp lệ: thiếu {(keyObj?.ContainsKey("e") == true ? "n" : "e")}");
+
+                        // Xác thực thủ công với e, n
+                        var hashInt = new BigInteger(hashBytes, isUnsigned: true);
+                        var nBI = BigInteger.Parse(keyObj["n"]);
+                        var eBI = BigInteger.Parse(keyObj["e"]);
+                        hashInt = hashInt % nBI;
+
+                        byte[] signatureBytes = Convert.FromBase64String(signature);
+                        Array.Reverse(signatureBytes);
+                        var signatureBI = new BigInteger(signatureBytes, isUnsigned: true);
+
+                        var decryptedHash = BigInteger.ModPow(signatureBI, eBI, nBI);
+                        bool isValid = decryptedHash.Equals(hashInt);
+
+                        return isValid
+                            ? (true, "Chữ ký tệp hợp lệ")
+                            : (false, $"Chữ ký tệp không hợp lệ. Giá trị băm hiện tại: {Convert.ToBase64String(hashBytes)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        return (false, $"Lỗi phân tích khóa JSON: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        // Xác thực với khóa Base64
+                        using var rsa = RSA.Create();
+                        var publicKeyBytes = Convert.FromBase64String(publicKey);
+                        rsa.ImportRSAPublicKey(publicKeyBytes, out _);
+
+                        var signatureBytes = Convert.FromBase64String(signature);
+                        var rsaHashAlgo = hashAlgorithm?.ToUpper() == "SHA512"
+                            ? HashAlgorithmName.SHA512
+                            : HashAlgorithmName.SHA256;
+
+                        bool isValid = rsa.VerifyHash(hashBytes, signatureBytes, rsaHashAlgo, RSASignaturePadding.Pkcs1);
+
+                        return isValid
+                            ? (true, "Chữ ký tệp hợp lệ")
+                            : (false, $"Chữ ký tệp không hợp lệ. Giá trị băm hiện tại: {Convert.ToBase64String(hashBytes)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        return (false, $"Lỗi xác thực bằng RSA: {ex.Message}");
+                    }
                 }
             }
-            else
+            catch (Exception ex)
             {
-                try
-                {
-                    // Xác thực với khóa Base64
-                    using var rsa = RSA.Create();
-                    var publicKeyBytes = Convert.FromBase64String(publicKey);
-                    rsa.ImportRSAPublicKey(publicKeyBytes, out _);
-
-                    var signatureBytes = Convert.FromBase64String(signature);
-                    var rsaHashAlgo = hashAlgorithm?.ToUpper() == "SHA512"
-                        ? HashAlgorithmName.SHA512
-                        : HashAlgorithmName.SHA256;
-
-                    bool isValid = rsa.VerifyHash(hashBytes, signatureBytes, rsaHashAlgo, RSASignaturePadding.Pkcs1);
-
-                    return isValid
-                        ? (true, "Chữ ký tệp hợp lệ")
-                        : (false, $"Chữ ký tệp không hợp lệ. Giá trị băm hiện tại: {Convert.ToBase64String(hashBytes)}");
-                }
-                catch (Exception ex)
-                {
-                    return (false, $"Lỗi xác thực bằng RSA: {ex.Message}");
-                }
+                return (false, $"Lỗi xác minh chữ ký: {ex.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            return (false, $"Lỗi xác thực chữ ký tệp: {ex.Message}");
-        }
-    }
-
-    // Thêm hàm IsValidBase64 ngay dưới VerifyFileSignatureAsync
-    private bool IsValidBase64(string str)
-    {
-        try
-        {
-            Convert.FromBase64String(str);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
         #region Private Helper Methods
 
@@ -1331,15 +1545,31 @@ namespace RsaSignApi.Services
             }
         }
         
-        // Helper method to check if a number is probably prime
-        private bool IsProbablyPrime(BigInteger n)
+        // Helper method to check if a number is prime (for small numbers)
+        private bool IsPrime(int number)
+        {
+            if (number <= 1) return false;
+            if (number <= 3) return true;
+            if (number % 2 == 0 || number % 3 == 0) return false;
+            
+            for (int i = 5; i * i <= number; i += 6)
+            {
+                if (number % i == 0 || number % (i + 2) == 0)
+                    return false;
+            }
+            
+            return true;
+        }
+        
+        // Helper method to check if a BigInteger number is probably prime
+        private bool IsPrime(BigInteger n)
         {
             if (n <= 1) return false;
             if (n <= 3) return true;
             if (n % 2 == 0 || n % 3 == 0) return false;
             
             // Simple primality test for small numbers
-            for (int i = 5; i * i <= n; i += 6)
+            for (int i = 5; i * i <= 100 && i * i <= n; i += 6)
             {
                 if (n % i == 0 || n % (i + 2) == 0)
                     return false;

@@ -64,7 +64,82 @@ namespace RsaSignApi.Controllers
         [HttpGet("health")]
         public IActionResult HealthCheck()
         {
-            return Ok(new { status = "hoạt động", timestamp = DateTime.UtcNow });
+            return Ok(new { status = "ok", timestamp = DateTime.UtcNow });
+        }
+
+        [HttpGet("check-libreoffice")]
+        public IActionResult CheckLibreOffice()
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "soffice",
+                    Arguments = "--version",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                
+                string output = string.Empty;
+                string error = string.Empty;
+                
+                using (var p = System.Diagnostics.Process.Start(psi))
+                {
+                    if (p == null)
+                    {
+                        return BadRequest(new { status = "error", message = "Failed to start LibreOffice process" });
+                    }
+                    
+                    output = p.StandardOutput.ReadToEnd();
+                    error = p.StandardError.ReadToEnd();
+                    
+                    if (!p.WaitForExit(10_000) || p.ExitCode != 0)
+                    {
+                        return BadRequest(new { 
+                            status = "error", 
+                            message = $"LibreOffice check failed. Exit code: {p.ExitCode}", 
+                            error = error,
+                            output = output
+                        });
+                    }
+                }
+                
+                // Check temp directory
+                string tempDir = Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath();
+                tempDir = string.IsNullOrEmpty(tempDir) ? "/tmp/libreoffice-conversion" : tempDir;
+                
+                bool tempDirExists = Directory.Exists(tempDir);
+                bool tempDirWritable = false;
+                
+                if (tempDirExists)
+                {
+                    try
+                    {
+                        string testFile = Path.Combine(tempDir, $"test-{Guid.NewGuid()}.txt");
+                        System.IO.File.WriteAllText(testFile, "Test");
+                        System.IO.File.Delete(testFile);
+                        tempDirWritable = true;
+                    }
+                    catch
+                    {
+                        tempDirWritable = false;
+                    }
+                }
+                
+                return Ok(new { 
+                    status = "ok", 
+                    libreOfficeVersion = output.Trim(),
+                    tempDirectory = tempDir,
+                    tempDirExists = tempDirExists,
+                    tempDirWritable = tempDirWritable
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { status = "error", message = ex.Message });
+            }
         }
 
         private string HashPassword(string password)
