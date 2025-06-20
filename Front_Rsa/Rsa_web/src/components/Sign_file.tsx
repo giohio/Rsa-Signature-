@@ -1131,26 +1131,34 @@ const Sign_file: React.FC = () => {
 
             {/* Add embedded signature option for file signing */}
             {signMethod === 'file' && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, p: 2, bgcolor: '#f0f7ff', borderRadius: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={useEmbeddedSign}
-                      onChange={(e) => setUseEmbeddedSign(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                        Sử dụng ký nhúng (embedded)
-                      </Typography>
-                      <Tooltip title="Ký nhúng sẽ tạo ra file PDF đã được ký trực tiếp, không cần file chữ ký riêng. Chữ ký được nhúng vào bên trong tài liệu và có thể được xác thực bởi các phần mềm đọc PDF thông thường.">
-                        <HelpOutlineIcon sx={{ ml: 1, fontSize: 16, color: 'text.secondary' }} />
-                      </Tooltip>
-                    </Box>
-                  }
-                />
+              <Box sx={{ mt: 2, p: 2, bgcolor: '#f0f7ff', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={useEmbeddedSign}
+                        onChange={(e) => setUseEmbeddedSign(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                          Sử dụng ký nhúng (embedded)
+                        </Typography>
+                        <Tooltip title="Ký nhúng sẽ tạo ra file PDF đã được ký trực tiếp, không cần file chữ ký riêng. Chữ ký được nhúng vào bên trong tài liệu và có thể được xác thực bởi các phần mềm đọc PDF thông thường.">
+                          <HelpOutlineIcon sx={{ ml: 1, fontSize: 16, color: 'text.secondary' }} />
+                        </Tooltip>
+                      </Box>
+                    }
+                  />
+                </Box>
+                {useEmbeddedSign && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <AlertTitle>Lưu ý về chữ ký nhúng</AlertTitle>
+                    Chữ ký nhúng yêu cầu sử dụng khóa RSA2048 trở lên. Các khóa có độ dài thấp hơn hoặc khóa thủ công không thể sử dụng cho chữ ký nhúng.
+                  </Alert>
+                )}
               </Box>
             )}
           </Paper>

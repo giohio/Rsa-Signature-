@@ -336,7 +336,12 @@ const Verify_file: React.FC = () => {
 
   // Handle embedded signature toggle
   const handleEmbeddedToggle = (_event: React.ChangeEvent<HTMLInputElement>) => {
-    setIsEmbedded(prev => !prev);
+    const newValue = !isEmbedded;
+    setIsEmbedded(newValue);
+    // Reset to file tab when switching to embedded mode
+    if (newValue && tabValue !== 0) {
+      setTabValue(0);
+    }
   };
 
   // Update the handleVerify function to use the embedded API
@@ -626,7 +631,11 @@ const Verify_file: React.FC = () => {
                 ].map((mode) => (
                   <Paper
                     key={mode.label}
-                    onClick={() => setIsEmbedded(mode.value)}
+                    onClick={() => {
+                      if (isEmbedded !== mode.value) {
+                        handleEmbeddedToggle(null as any);
+                      }
+                    }}
                     sx={{
                       flex: { xs: '1 0 100%', sm: '1 0 45%' },
                       p: 2,
@@ -652,6 +661,13 @@ const Verify_file: React.FC = () => {
                   </Paper>
                 ))}
               </Box>
+              
+              {isEmbedded && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <AlertTitle>Lưu ý về xác thực chữ ký nhúng</AlertTitle>
+                  Chế độ xác thực chữ ký nhúng chỉ hỗ trợ tải lên file PDF có chữ ký số nhúng sẵn. Không hỗ trợ nhập văn bản thủ công.
+                </Alert>
+              )}
             </Box>
 
             {!isEmbedded && (
@@ -890,7 +906,9 @@ const Verify_file: React.FC = () => {
               sx={{ mb: 3 }}
             >
               <Tab icon={<FileUploadIcon />} label="Tải file" />
-              <Tab icon={<TextFieldsIcon />} label="Nhập văn bản" />
+              {!isEmbedded && (
+                <Tab icon={<TextFieldsIcon />} label="Nhập văn bản" />
+              )}
             </Tabs>
 
             <TabPanel value={tabValue} index={0}>
