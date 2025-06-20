@@ -344,13 +344,13 @@ namespace RsaSignApi.Services
                         email = eValue;
 
                     _logger.LogInformation($"Parsed FullName: {fullName}, Email: {email}");
-                    return (true, "PDF signature is valid", true, fullName, email);
+                    return (true, "PDF signature is valid", true, fullName ?? string.Empty, email ?? string.Empty);
                 }
                 else
                 {
                     // Verify detached signature (.sig file)
                     if (originalFile == null)
-                        return (false, "Original file is required for detached signature verification", false, null, null);
+                        return (false, "Original file is required for detached signature verification", false, string.Empty, string.Empty);
                     
                     _logger.LogInformation("Verifying detached signature");
                     
@@ -372,7 +372,7 @@ namespace RsaSignApi.Services
                     
                     // TODO: Implement detached signature verification
                     // This is just a placeholder for now
-                    return (false, "Detached signature verification not implemented yet", false, null, null);
+                    return (false, "Detached signature verification not implemented yet", false, string.Empty, string.Empty);
                 }
             }
             catch (Exception ex)
@@ -380,7 +380,7 @@ namespace RsaSignApi.Services
                 _logger.LogError($"Error verifying signature: {ex.Message}");
                 if (ex.InnerException != null)
                     _logger.LogError($"Inner exception: {ex.InnerException.Message}");
-                return (false, $"Lỗi không xác định: {ex.Message}", false, null, null);
+                return (false, $"Lỗi không xác định: {ex.Message}", false, string.Empty, string.Empty);
             }
         }
 
@@ -409,7 +409,9 @@ namespace RsaSignApi.Services
                 switch (hashAlgorithm?.ToUpperInvariant())
                 {
                     case "MD5":
-                        digestAlgorithm = DigestAlgorithms.MD5;
+                        // MD5 is not available in DigestAlgorithms, use DigestAlgorithms.SHA1 as fallback
+                        digestAlgorithm = DigestAlgorithms.SHA1;
+                        _logger.LogWarning("MD5 is not available in DigestAlgorithms, using SHA1 instead");
                         break;
                     case "SHA1":
                         digestAlgorithm = DigestAlgorithms.SHA1;
