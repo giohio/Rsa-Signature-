@@ -918,7 +918,7 @@ const Sign_file: React.FC = () => {
                       {fileContent && (
                         <Typography variant="body2" color="textSecondary">
                           Sẵn sàng để ký
-                        </Typography>
+                </Typography>
                       )}
                     </Box>
                   </Paper>
@@ -1015,18 +1015,18 @@ const Sign_file: React.FC = () => {
                   <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f8f8', maxHeight: '300px', overflow: 'auto' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                       <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                        Xem trước nội dung:
-                      </Typography>
+                    Xem trước nội dung:
+                  </Typography>
                       <Chip 
                         label="Xem trước nội dung văn bản"
                         size="small" 
                         color="primary" 
-                        variant="outlined"
+                    variant="outlined"
                         sx={{ ml: 1, fontSize: '0.7rem' }}
                       />
                     </Box>
                     <Box 
-                      sx={{ 
+                    sx={{ 
                         whiteSpace: 'pre-wrap', 
                         fontFamily: 'monospace',
                         fontSize: '0.9rem',
@@ -1039,7 +1039,7 @@ const Sign_file: React.FC = () => {
                       }}
                     >
                       {fileContent}
-                    </Box>
+                </Box>
                   </Paper>
               )}
             </Box>

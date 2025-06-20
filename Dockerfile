@@ -25,20 +25,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libreoffice \
+      libreoffice-core \
       libreoffice-writer \
-      libreoffice-calc \
-      libreoffice-impress \
-      libreoffice-draw \
-      libreoffice-math \
-      libreoffice-base \
-      libreoffice-java-common \
       default-jre-headless \
-      fonts-liberation \
-      fonts-dejavu \
-      fontconfig \
-      curl \
-      ca-certificates \
- && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
 # Create a directory for temporary files with proper permissions

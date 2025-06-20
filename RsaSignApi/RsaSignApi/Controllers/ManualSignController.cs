@@ -323,13 +323,13 @@ namespace RsaSignApi.Controllers
                 
                 if (body.TryGetProperty("hashAlgorithm", out var hashElem))
                     hashAlgorithm = hashElem.GetString() ?? "SHA256";
-                
+
                 if (body.TryGetProperty("data", out var dataElem))
                     data = dataElem.GetString() ?? "";
                 
                 if (string.IsNullOrEmpty(privateKeyBase64) || string.IsNullOrEmpty(data))
                     return BadRequest(new { error = "Khóa riêng và dữ liệu là bắt buộc" });
-                
+
                 var privateKeyBytes = Convert.FromBase64String(privateKeyBase64);
                 using var rsa = RSA.Create();
                 rsa.ImportRSAPrivateKey(privateKeyBytes, out _);
@@ -347,11 +347,11 @@ namespace RsaSignApi.Controllers
                         signatureBytes = rsa.SignData(dataBytes, HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1);
                         break;
                     case "SHA512":
-                        signatureBytes = rsa.SignData(dataBytes, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+                    signatureBytes = rsa.SignData(dataBytes, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
                         break;
                     case "SHA256":
                     default:
-                        signatureBytes = rsa.SignData(dataBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                    signatureBytes = rsa.SignData(dataBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
                         break;
                 }
 
