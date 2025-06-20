@@ -708,12 +708,12 @@ namespace RsaSignApi.Services
                                 // Check if they have the required fields
                                 if (publicKeyObj == null || !publicKeyObj.ContainsKey("e") || !publicKeyObj.ContainsKey("n"))
                                 {
-                                    return (false, "Khóa công khai không hợp lệ - thiếu tham số e hoặc n", null!, null!);
+                                    return (false, "Khóa công khai không hợp lệ - thiếu tham số e hoặc n", string.Empty, string.Empty);
                                 }
                                 
                                 if (privateKeyObj == null || !privateKeyObj.ContainsKey("d") || !privateKeyObj.ContainsKey("n"))
                                 {
-                                    return (false, "Khóa riêng không hợp lệ - thiếu tham số d hoặc n", null!, null!);
+                                    return (false, "Khóa riêng không hợp lệ - thiếu tham số d hoặc n", string.Empty, string.Empty);
                                 }
                                 
                                 // Extract n, e, d from the keys for mathematical validation
@@ -737,7 +737,7 @@ namespace RsaSignApi.Services
                                         // Validate key sizes
                                         if (nBig < 3 || eBig < 3 || dBig < 3)
                                         {
-                                            return (false, "Tham số RSA không hợp lệ: n, e, và d phải >= 3", null!, null!);
+                                            return (false, "Tham số RSA không hợp lệ: n, e, và d phải >= 3", string.Empty, string.Empty);
                                         }
                                         
                                         // If we have p and q, validate them
@@ -749,13 +749,13 @@ namespace RsaSignApi.Services
                                             // Check if p and q are prime (simple check)
                                             if (!IsPrime(pBig) || !IsPrime(qBig))
                                             {
-                                                return (false, "Tham số p và q phải là số nguyên tố", null!, null!);
+                                                return (false, "Tham số p và q phải là số nguyên tố", string.Empty, string.Empty);
                                             }
                                             
                                             // Check if n = p*q
                                             if (pBig * qBig != nBig)
                                             {
-                                                return (false, "Tích của p và q không bằng n", null!, null!);
+                                                return (false, "Tích của p và q không bằng n", string.Empty, string.Empty);
                                             }
                                             
                                             // Calculate phi(n) = (p-1)*(q-1)
@@ -764,13 +764,13 @@ namespace RsaSignApi.Services
                                             // Check if e and phi are coprime
                                             if (BigInteger.GreatestCommonDivisor(eBig, phi) != 1)
                                             {
-                                                return (false, "e và phi(n) không nguyên tố cùng nhau", null!, null!);
+                                                return (false, "e và phi(n) không nguyên tố cùng nhau", string.Empty, string.Empty);
                                             }
                                             
                                             // Check if e*d ≡ 1 (mod phi(n))
                                             if ((eBig * dBig) % phi != 1)
                                             {
-                                                return (false, "e và d không phải là nghịch đảo modulo phi(n)", null!, null!);
+                                                return (false, "e và d không phải là nghịch đảo modulo phi(n)", string.Empty, string.Empty);
                                             }
                                         }
                                         else
@@ -783,13 +783,13 @@ namespace RsaSignApi.Services
                                             
                                             if (decrypted != testValue)
                                             {
-                                                return (false, "Khóa không hợp lệ, e và d không phải là nghịch đảo modulo phi(n)", null!, null!);
+                                                return (false, "Khóa không hợp lệ, e và d không phải là nghịch đảo modulo phi(n)", string.Empty, string.Empty);
                                             }
                                         }
                                     }
                                     catch (Exception ex)
                                     {
-                                        return (false, $"Lỗi khi xác thực khóa: {ex.Message}", null!, null!);
+                                        return (false, $"Lỗi khi xác thực khóa: {ex.Message}", string.Empty, string.Empty);
                                     }
                                 }
                                 
@@ -797,7 +797,7 @@ namespace RsaSignApi.Services
                                 Console.WriteLine("Thành công xác thực khóa");
                             }
                             catch (JsonException ex) {
-                                return (false, $"Lỗi khi xác thực khóa: {ex.Message}", null!, null!);
+                                return (false, $"Lỗi khi xác thực khóa: {ex.Message}", string.Empty, string.Empty);
                             }
                         }
                         else
@@ -818,7 +818,7 @@ namespace RsaSignApi.Services
                                 if (rsaParams.Modulus == null || rsaParams.Exponent == null || 
                                     rsaParams.D == null || rsaParams.P == null || rsaParams.Q == null)
                                 {
-                                    return (false, "Khoá không hợp lệ", null!, null!);
+                                    return (false, "Khoá không hợp lệ", string.Empty, string.Empty);
                                 }
                                 
                                 // Test encryption/decryption
@@ -833,24 +833,24 @@ namespace RsaSignApi.Services
                                     // Compare original and decrypted data
                                     if (!testData.SequenceEqual(decrypted))
                                     {
-                                        return (false, "Xác thực khóa RSA không thành công: kiểm tra mã hóa/giải mã không thành công", null!, null!);
+                                        return (false, "Xác thực khóa RSA không thành công: kiểm tra mã hóa/giải mã không thành công", string.Empty, string.Empty);
                                     }
                                 }
                                 catch (Exception ex)
                     {
-                                    return (false, $"Xác thực khóa RSA không thành công trong quá trình kiểm tra mã hóa: {ex.Message}", null!, null!);
+                                    return (false, $"Xác thực khóa RSA không thành công trong quá trình kiểm tra mã hóa: {ex.Message}", string.Empty, string.Empty);
                                 }
                                 
                                 Console.WriteLine("Successfully validated Base64 format keys");
                             }
                             catch (Exception ex) {
-                                return (false, $"Định dạng khóa không hợp lệ: {ex.Message}", null!, null!);
+                                return (false, $"Định dạng khóa không hợp lệ: {ex.Message}", string.Empty, string.Empty);
                             }
                         }
                     }
                     catch (Exception ex)
                     {
-                        return (false, $"Lỗi xác thực khóa: {ex.Message}", null!, null!);
+                        return (false, $"Lỗi xác thực khóa: {ex.Message}", string.Empty, string.Empty);
                     }
                     
                     // Log success
@@ -860,12 +860,12 @@ namespace RsaSignApi.Services
                 }
                 catch (JsonException ex)
                 {
-                    return (false, $"Invalid JSON format in key file: {ex.Message}", null!, null!);
+                    return (false, $"Invalid JSON format in key file: {ex.Message}", string.Empty, string.Empty);
                 }
             }
             catch (Exception ex)
             {
-                return (false, $"Lỗi nhập khóa: {ex.Message}", null!, null!);
+                return (false, $"Lỗi nhập khóa: {ex.Message}", string.Empty, string.Empty);
             }
         }
 
@@ -877,7 +877,7 @@ namespace RsaSignApi.Services
             try
             {
                 if (string.IsNullOrEmpty(data))
-                    return (false, "Dữ liệu là null hoặc trống", null!);
+                    return (false, "Dữ liệu là null hoặc trống", string.Empty);
                 
                 // Parse the parameters
                 BigInteger nBI, eBI, dBI;
@@ -890,12 +890,12 @@ namespace RsaSignApi.Services
                 }
                 catch (Exception ex)
                 {
-                    return (false, $"Lỗi phân tích tham số: {ex.Message}", null!);
+                    return (false, $"Lỗi phân tích tham số: {ex.Message}", string.Empty);
                 }
                 
                 // Validate parameters
                 if (nBI < 3 || eBI < 3 || dBI < 3)
-                    return (false, "Tham số không hợp lệ: n, e, và d phải >= 3", null!);
+                    return (false, "Tham số không hợp lệ: n, e, và d phải >= 3", string.Empty);
                 
                 // Hash the data
                 byte[] dataBytes = System.Text.Encoding.UTF8.GetBytes(data);
