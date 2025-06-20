@@ -230,23 +230,59 @@ namespace RsaSignApi.Services
                     // Detached signature (.sig)
                     // Hash the file
                     byte[] hashBytes;
-                    if (model.HashAlgorithm?.ToUpper() == "SHA512")
+                    switch (model.HashAlgorithm?.ToUpper())
                     {
-                        using var sha512 = SHA512.Create();
-                        hashBytes = sha512.ComputeHash(fileBytes);
+                        case "MD5":
+                            using (var md5 = MD5.Create())
+                            {
+                                hashBytes = md5.ComputeHash(fileBytes);
+                            }
+                            break;
+                        case "SHA1":
+                            using (var sha1 = SHA1.Create())
+                            {
+                                hashBytes = sha1.ComputeHash(fileBytes);
+                            }
+                            break;
+                        case "SHA512":
+                            using (var sha512 = SHA512.Create())
+                            {
+                                hashBytes = sha512.ComputeHash(fileBytes);
+                            }
+                            break;
+                        case "SHA256":
+                        default:
+                            using (var sha256 = SHA256.Create())
+                            {
+                                hashBytes = sha256.ComputeHash(fileBytes);
+                            }
+                            break;
                     }
-                    else
-                    {
-                        using var sha256 = SHA256.Create();
-                        hashBytes = sha256.ComputeHash(fileBytes);
-                    }
+                    
                     // Sign the hash
                     var privateKeyBytes = Convert.FromBase64String(signRecord.PrivateKey);
                     using var rsa = RSA.Create();
                     rsa.ImportRSAPrivateKey(privateKeyBytes, out _);
-                    var rsaHashAlgo = model.HashAlgorithm?.ToUpper() == "SHA512" 
-                        ? HashAlgorithmName.SHA512 
-                        : HashAlgorithmName.SHA256;
+                    
+                    // Use the appropriate hash algorithm
+                    HashAlgorithmName rsaHashAlgo;
+                    switch (model.HashAlgorithm?.ToUpper())
+                    {
+                        case "MD5":
+                            rsaHashAlgo = HashAlgorithmName.MD5;
+                            break;
+                        case "SHA1":
+                            rsaHashAlgo = HashAlgorithmName.SHA1;
+                            break;
+                        case "SHA512":
+                            rsaHashAlgo = HashAlgorithmName.SHA512;
+                            break;
+                        case "SHA256":
+                        default:
+                            rsaHashAlgo = HashAlgorithmName.SHA256;
+                            break;
+                    }
+                    
                     var signatureBytes = rsa.SignHash(hashBytes, rsaHashAlgo, RSASignaturePadding.Pkcs1);
                     // Return signature as .sig file
                     string sigFileName = $"{Path.GetFileNameWithoutExtension(model.File.FileName)}.sig";
@@ -351,23 +387,19 @@ namespace RsaSignApi.Services
         // Helper: Ký PDF bytes bằng iTextSharp
         private byte[] SignPdfBytes(byte[] pdfBytes, X509Certificate2 cert, string hashAlgorithm = "SHA256")
         {
+            using var signedStream = new MemoryStream();
             try
             {
                 _logger.LogInformation($"Starting SignPdfBytes with algorithm {hashAlgorithm}, PDF size: {pdfBytes.Length} bytes");
-                
-                using var reader = new PdfReader(pdfBytes);
-                _logger.LogInformation($"PDF opened successfully, pages: {reader.NumberOfPages}");
-                
-                using var signedStream = new MemoryStream();
+                var reader = new PdfReader(pdfBytes);
                 var stamper = PdfStamper.CreateSignature(reader, signedStream, '\0');
-                _logger.LogInformation("PDF stamper created successfully");
                 
+                // Create the appearance
                 var appearance = stamper.SignatureAppearance;
-                appearance.Reason = "Digitally signed by RsaSignApi";
+                appearance.Reason = "Digital Signature";
                 appearance.Location = "Vietnam";
-                appearance.SetVisibleSignature(new Rectangle(36, 748, 144, 780), 1, "SignatureField");
-                _logger.LogInformation("Signature appearance set successfully");
-
+                appearance.SetVisibleSignature(new iTextSharp.text.Rectangle(100, 100, 300, 200), 1, "sig");
+                
                 var bcCert = DotNetUtilities.FromX509Certificate(cert);
                 var privateKey = DotNetUtilities.GetKeyPair(cert.GetRSAPrivateKey()).Private;
                 _logger.LogInformation("Successfully extracted private key from certificate");
@@ -376,6 +408,12 @@ namespace RsaSignApi.Services
                 string digestAlgorithm;
                 switch (hashAlgorithm?.ToUpperInvariant())
                 {
+                    case "MD5":
+                        digestAlgorithm = DigestAlgorithms.MD5;
+                        break;
+                    case "SHA1":
+                        digestAlgorithm = DigestAlgorithms.SHA1;
+                        break;
                     case "SHA512":
                         digestAlgorithm = DigestAlgorithms.SHA512;
                         break;
@@ -427,41 +465,117 @@ namespace RsaSignApi.Services
             try
             {
                 // 1. Ghi file tạm
-                string tmpIn = Path.Combine(Path.GetTempPath(),
-                                          $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}");
+                string tempDir = Environment.GetEnvironmentVariable("TMPDIR") ?? Path.GetTempPath();
+                tempDir = string.IsNullOrEmpty(tempDir) ? "/tmp/libreoffice-conversion" : tempDir;
+                
+                // Ensure temp directory exists
+                if (!Directory.Exists(tempDir))
+                {
+                    _logger.LogInformation($"ConvertToPdf: Creating temp directory at {tempDir}");
+                    Directory.CreateDirectory(tempDir);
+                }
+                
+                string fileName = $"{Guid.NewGuid()}{Path.GetExtension(originalFileName)}";
+                string tmpIn = Path.Combine(tempDir, fileName);
+                
+                _logger.LogInformation($"ConvertToPdf: Creating temp file at {tmpIn}");
                 System.IO.File.WriteAllBytes(tmpIn, inputBytes);
+
+                // Make sure the file exists
+                if (!System.IO.File.Exists(tmpIn))
+                {
+                    _logger.LogError($"ConvertToPdf: Failed to create temporary input file at {tmpIn}");
+                    throw new FileNotFoundException("Could not create temporary input file", tmpIn);
+                }
 
                 // 2. Gọi soffice để convert
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "soffice",
-                    Arguments = $"--headless --convert-to pdf --outdir \"{Path.GetTempPath()}\" \"{tmpIn}\"",
+                    Arguments = $"--headless --convert-to pdf --outdir \"{tempDir}\" \"{tmpIn}\"",
                     CreateNoWindow = true,
-                    UseShellExecute = false
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = tempDir
                 };
-                using var p = System.Diagnostics.Process.Start(psi);
-                if (p == null || !p.WaitForExit(60_000) || p.ExitCode != 0)
-                    throw new InvalidOperationException("LibreOffice conversion failed.");
+                
+                _logger.LogInformation($"ConvertToPdf: Executing LibreOffice command: {psi.FileName} {psi.Arguments}");
+                
+                string output = string.Empty;
+                string error = string.Empty;
+                
+                using (var p = System.Diagnostics.Process.Start(psi))
+                {
+                    if (p == null)
+                    {
+                        _logger.LogError("ConvertToPdf: Failed to start LibreOffice process");
+                        throw new InvalidOperationException("Failed to start LibreOffice process");
+                    }
+                    
+                    output = p.StandardOutput.ReadToEnd();
+                    error = p.StandardError.ReadToEnd();
+                    
+                    if (!p.WaitForExit(60_000) || p.ExitCode != 0)
+                    {
+                        _logger.LogError($"ConvertToPdf: LibreOffice process failed. Exit code: {p.ExitCode}, Error: {error}, Output: {output}");
+                        throw new InvalidOperationException($"LibreOffice conversion failed. Exit code: {p.ExitCode}, Error: {error}");
+                    }
+                    
+                    _logger.LogInformation($"ConvertToPdf: LibreOffice process completed successfully. Output: {output}");
+                }
 
                 // 3. Đọc PDF vừa tạo
                 string tmpOut = Path.ChangeExtension(tmpIn, ".pdf");
+                _logger.LogInformation($"ConvertToPdf: Looking for output PDF at {tmpOut}");
+                
                 if (!System.IO.File.Exists(tmpOut))
-                    throw new FileNotFoundException("Converted PDF not found", tmpOut);
+                {
+                    _logger.LogError($"ConvertToPdf: Output PDF not found at {tmpOut}");
+                    
+                    // Try to find the output file with a different name pattern
+                    string baseFileName = Path.GetFileNameWithoutExtension(originalFileName);
+                    string[] possibleFiles = Directory.GetFiles(tempDir, $"{baseFileName}*.pdf");
+                    
+                    if (possibleFiles.Length > 0)
+                    {
+                        tmpOut = possibleFiles[0];
+                        _logger.LogInformation($"ConvertToPdf: Found alternative output PDF at {tmpOut}");
+                    }
+                    else
+                    {
+                        // List files in temp directory to help debug
+                        var files = Directory.GetFiles(tempDir);
+                        _logger.LogInformation($"ConvertToPdf: Files in temp directory: {string.Join(", ", files)}");
+                        
+                        throw new FileNotFoundException($"Converted PDF not found. Output: {output}, Error: {error}", tmpOut);
+                    }
+                }
+                
                 var pdfBytes = System.IO.File.ReadAllBytes(tmpOut);
+                _logger.LogInformation($"ConvertToPdf: Successfully read PDF, size: {pdfBytes.Length} bytes");
 
                 // 4. Xóa file tạm
                 try
                 {
                     System.IO.File.Delete(tmpIn);
                     System.IO.File.Delete(tmpOut);
+                    _logger.LogInformation("ConvertToPdf: Temporary files deleted successfully");
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"ConvertToPdf: Failed to delete temporary files: {ex.Message}");
+                    // Continue execution even if temp file deletion fails
+                }
 
                 return pdfBytes;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Lỗi không xác định: {ex.Message}", ex);
+                _logger.LogError($"ConvertToPdf: Conversion failed: {ex.Message}");
+                if (ex.InnerException != null)
+                    _logger.LogError($"ConvertToPdf: Inner exception: {ex.InnerException.Message}");
+                throw new Exception($"Không thể chuyển đổi tài liệu sang PDF: {ex.Message}", ex);
             }
         }
 

@@ -14,6 +14,10 @@ services:
       - ConnectionStrings__MongoDB=mongodb://mongodb:27017
       - MongoDB__DatabaseName=RsaSignDb
       - MongoDB__ConnectionString=mongodb://mongodb:27017
+      - TMPDIR=/tmp/libreoffice-conversion
+      - HOME=/tmp/libreoffice-conversion
+    volumes:
+      - libreoffice-tmp:/tmp/libreoffice-conversion
     depends_on:
       - mongodb
     networks:
@@ -24,6 +28,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   mongodb:
     image: mongo:6.0
@@ -50,4 +60,6 @@ networks:
 
 volumes:
   mongodb-data:
+    driver: local
+  libreoffice-tmp:
     driver: local 

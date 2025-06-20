@@ -17,6 +17,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useSnackbar } from 'notistack';
 import { DownloadIcon } from 'lucide-react';
 
@@ -67,6 +68,9 @@ const Sign_file: React.FC = () => {
   // Trong phần khai báo biến state, thêm state cho việc xem trước ảnh
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  // Add state for PDF preview
+  const [pdfPreview, setPdfPreview] = useState<string | null>(null);
+
   // Fetch signatures on component mount
 
   
@@ -103,6 +107,7 @@ const Sign_file: React.FC = () => {
       setFileName(file.name);
       setError(null);
       setImagePreview(null); // Reset image preview
+      setPdfPreview(null); // Reset PDF preview
       
       // Giới hạn kích thước file
       if (file.size > 10 * 1024 * 1024) { // 10MB
@@ -139,7 +144,9 @@ const Sign_file: React.FC = () => {
         reader.readAsText(file);
       } else if (file.type.includes('pdf') || 
                 file.name.endsWith('.pdf')) {
-        // Đối với PDF, hiển thị thông tin
+        // Đối với PDF, tạo URL để xem trước
+        const pdfUrl = URL.createObjectURL(file);
+        setPdfPreview(pdfUrl);
         setFileContent(`[PDF Document] - ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
         showNotification('Đã tải file PDF thành công', 'success');
       } else if (file.type.includes('word') || 
@@ -911,12 +918,60 @@ const Sign_file: React.FC = () => {
                       {fileContent && (
                         <Typography variant="body2" color="textSecondary">
                           Sẵn sàng để ký
-                </Typography>
+                        </Typography>
                       )}
                     </Box>
                   </Paper>
               )}
               
+              {/* PDF Preview */}
+              {pdfPreview && (
+                <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f8f8', textAlign: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <PictureAsPdfIcon sx={{ mr: 1, color: 'error.main' }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Xem trước PDF:
+                    </Typography>
+                    <Chip 
+                      label="Xem trước PDF"
+                      size="small" 
+                      color="error" 
+                      variant="outlined"
+                      sx={{ ml: 1, fontSize: '0.7rem' }}
+                    />
+                  </Box>
+                  <Box 
+                    sx={{ 
+                      width: '100%',
+                      height: '500px',
+                      maxHeight: '500px',
+                      overflow: 'hidden',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <iframe 
+                      src={`${pdfPreview}#toolbar=0&navpanes=0`}
+                      width="100%" 
+                      height="100%" 
+                      style={{ border: 'none' }} 
+                      title="PDF Preview"
+                    />
+                  </Box>
+                  <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      startIcon={<PictureAsPdfIcon />}
+                      onClick={() => window.open(pdfPreview, '_blank')}
+                    >
+                      Mở PDF trong tab mới
+                    </Button>
+                  </Box>
+                </Paper>
+              )}
+              
+              {/* Image Preview - existing code */}
               {imagePreview && (
                 <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f8f8', textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -955,22 +1010,23 @@ const Sign_file: React.FC = () => {
                 </Paper>
               )}
               
-              {fileContent && !imagePreview && (
+              {/* Text content preview - existing code with condition to not show if PDF or image preview is active */}
+              {fileContent && !imagePreview && !pdfPreview && (
                   <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: '#f8f8f8', maxHeight: '300px', overflow: 'auto' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                       <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                    Xem trước nội dung:
-                  </Typography>
+                        Xem trước nội dung:
+                      </Typography>
                       <Chip 
                         label="Xem trước nội dung văn bản"
                         size="small" 
                         color="primary" 
-                    variant="outlined"
+                        variant="outlined"
                         sx={{ ml: 1, fontSize: '0.7rem' }}
                       />
                     </Box>
                     <Box 
-                    sx={{ 
+                      sx={{ 
                         whiteSpace: 'pre-wrap', 
                         fontFamily: 'monospace',
                         fontSize: '0.9rem',
@@ -983,7 +1039,7 @@ const Sign_file: React.FC = () => {
                       }}
                     >
                       {fileContent}
-                </Box>
+                    </Box>
                   </Paper>
               )}
             </Box>
