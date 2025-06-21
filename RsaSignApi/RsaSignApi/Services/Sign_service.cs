@@ -179,7 +179,7 @@ namespace RsaSignApi.Services
                     catch (Exception ex)
                     {
                         _logger.LogError($"SignDocumentAsync: Failed to create certificate: {ex.Message}");
-                        return (false, $"Không thể tạo chứng chỉ: {ex.Message}", null, null);
+                        return (false, $"Không thể tạo chứng chỉ: cần khóa RSA 2048 trở nên mới có thể tạo", null, null);
                     }
                     
                     // Process file based on extension

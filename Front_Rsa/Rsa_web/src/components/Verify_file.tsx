@@ -444,7 +444,10 @@ const Verify_file: React.FC = () => {
           if (errorMsg.toLowerCase().includes('hash') || 
               errorMsg.toLowerCase().includes('băm') ||
               errorMsg.toLowerCase().includes('digest') ||
-              errorMsg.toLowerCase().includes('checksum')) {
+              errorMsg.toLowerCase().includes('checksum') ||
+              errorMsg.toLowerCase().includes('thay đổi') ||
+              errorMsg.toLowerCase().includes('sửa đổi') ||
+              errorMsg.toLowerCase().includes('tampered')) {
             // Mark result as tampered
             response.data.tamperedDetected = true;
             
@@ -458,6 +461,11 @@ const Verify_file: React.FC = () => {
             }
             
             showNotification('Phát hiện văn bản đã bị chỉnh sửa sau khi ký!', 'error');
+          } else if (errorMsg.toLowerCase().includes('chữ ký không hợp lệ') || 
+                    errorMsg.toLowerCase().includes('invalid signature')) {
+            // This is a case where the signature itself was modified
+            response.data.tamperedDetected = true;
+            showNotification('Chữ ký đã bị thay đổi hoặc không khớp với văn bản!', 'error');
           } else {
             showNotification(errorMsg || 'Xác thực chữ ký thất bại', 'warning');
           }
@@ -1061,7 +1069,11 @@ const Verify_file: React.FC = () => {
                verificationResult.tamperedDetected ? 'Tài liệu đã bị sửa đổi' : 'Không hợp lệ'}
             </AlertTitle>
             {verificationResult.tamperedDetected ? 
-              'Nội dung tài liệu đã bị thay đổi sau khi ký.' : verificationResult.message}
+              (verificationResult.message?.toLowerCase().includes('chữ ký') || 
+               verificationResult.message?.toLowerCase().includes('signature') ? 
+                'Chữ ký đã bị thay đổi hoặc không khớp với văn bản!' : 
+                'Nội dung tài liệu đã bị thay đổi sau khi ký.') : 
+              verificationResult.message}
           </Alert>
 
           {/* Display FullName and Email */}
