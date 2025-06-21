@@ -737,6 +737,31 @@ const Sign_file: React.FC = () => {
     navigate('/homepage');
   };
 
+  // Function to download manual text as TXT file
+  const downloadManualTextAsFile = () => {
+    if (!manualContent) {
+      showNotification('Không có nội dung văn bản để tải xuống', 'error');
+      return;
+    }
+    
+    // Create a Blob with the text content
+    const textBlob = new Blob([manualContent], { type: 'text/plain;charset=utf-8' });
+    const textUrl = URL.createObjectURL(textBlob);
+    
+    // Create a download link and trigger it
+    const downloadLink = document.createElement('a');
+    downloadLink.href = textUrl;
+    downloadLink.download = `van_ban_${new Date().getTime()}.txt`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    
+    // Clean up
+    window.URL.revokeObjectURL(textUrl);
+    document.body.removeChild(downloadLink);
+    
+    showNotification('Đã tải xuống văn bản thành công (.txt)', 'success');
+  };
+  
   // Add these functions for exporting signature and public key
   const exportSignatureAsFile = () => {
     if (!signature) {
@@ -873,17 +898,40 @@ const Sign_file: React.FC = () => {
           </Tabs>
           
           {signMethod === 'manual' ? (
-            <TextField
-              label="Nội dung cần ký"
-              multiline
-              rows={6}
-              fullWidth
-              variant="outlined"
-              value={manualContent}
-              onChange={(e) => setManualContent(e.target.value)}
-              sx={{ mb: 3 }}
+            <Box sx={{ position: 'relative', mb: 3 }}>
+              <TextField
+                label="Nội dung cần ký"
+                multiline
+                rows={6}
+                fullWidth
+                variant="outlined"
+                value={manualContent}
+                onChange={(e) => setManualContent(e.target.value)}
                 placeholder="Nhập nội dung văn bản cần ký số..."
-            />
+              />
+              {manualContent && (
+                <Tooltip title="Tải xuống nội dung dưới dạng file TXT">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="primary"
+                    startIcon={<DownloadIcon />}
+                    onClick={downloadManualTextAsFile}
+                    sx={{ 
+                      position: 'absolute', 
+                      right: '10px', 
+                      bottom: '10px',
+                      bgcolor: 'rgba(255, 255, 255, 0.9)',
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 1)'
+                      }
+                    }}
+                  >
+                    Tải TXT
+                  </Button>
+                </Tooltip>
+              )}
+            </Box>
           ) : (
               <Box sx={{ mb: 3, p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fafafa' }}>
               <input
@@ -1341,6 +1389,17 @@ const Sign_file: React.FC = () => {
               >
                 Xuất khóa công khai
               </Button>
+              {signMethod === 'manual' && manualContent && (
+                <Button
+                  variant="outlined"
+                  color="info"
+                  onClick={downloadManualTextAsFile}
+                  startIcon={<DescriptionIcon />}
+                  sx={{ fontWeight: 'medium' }}
+                >
+                  Tải văn bản TXT
+                </Button>
+              )}
             </Box>
           </Paper>
         )}

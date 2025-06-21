@@ -70,7 +70,9 @@ const SignatureManagement: React.FC = () => {
   const [openGen, setOpenGen] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
+  // State for loading indicators
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
   
   // State for edit mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -168,11 +170,20 @@ const SignatureManagement: React.FC = () => {
       const signatureName = keyParams.signatureName || `RSA-${keySize}-${new Date().toISOString().slice(0, 10)}`;
       
       console.log('Generating RSA key with size:', keySize);
+      
+      // Show notification that key generation is in progress
+      showNotification(`Đang tạo khóa RSA ${keySize}-bit, vui lòng đợi...`, 'info');
+      
+      // Add timeout for larger keys
+      const timeoutMs = keySize >= 4096 ? 60000 : 30000; // 60s for 4096-bit, 30s for others
+      
       const response = await axios.post(`${API_URL}/sign/generate-keys`, { 
         userId, 
         keySize,
         signatureName: signatureName,
         signatureType: `Rsa${keySize}`
+      }, {
+        timeout: timeoutMs
       });
       
       console.log('RSA key generation response:', response.data);
@@ -206,9 +217,25 @@ const SignatureManagement: React.FC = () => {
         showNotification('Invalid response from server', 'error');
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('RSA key generation error:', error);
-      showNotification('Failed to generate RSA key', 'error');
+      
+      // More detailed error message
+      let errorMessage = 'Failed to generate RSA key';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Key generation timed out. Server may be busy or key size too large.';
+      } else if (error.response) {
+        // Server responded with an error
+        errorMessage = `Server error: ${error.response.data?.error || error.response.data?.message || error.response.statusText}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'No response from server. Please check your connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showNotification(errorMessage, 'error');
       return false;
     }
   };
@@ -414,27 +441,35 @@ const SignatureManagement: React.FC = () => {
     }
     
     let success = false;
+    setIsGeneratingKey(true);
     
-    if (keyParams.keyType === 'Auto') {
-      // Auto mode: Generate small parameters
-      success = await generateAutoParams();
-    } 
-    else if (keyParams.keyType === 'Manual') {
-      // Manual mode: Generate E,D from P,Q
-      if (!keyParams.p || !keyParams.q) {
-        showNotification('Vui lòng nhập giá trị P và Q', 'error');
-        return;
+    try {
+      if (keyParams.keyType === 'Auto') {
+        // Auto mode: Generate small parameters
+        success = await generateAutoParams();
+      } 
+      else if (keyParams.keyType === 'Manual') {
+        // Manual mode: Generate E,D from P,Q
+        if (!keyParams.p || !keyParams.q) {
+          showNotification('Vui lòng nhập giá trị P và Q', 'error');
+          return;
+        }
+        
+        success = await generateEDFromPQ();
+      }
+      else if (keyParams.keyType.startsWith('Rsa')) {
+        // RSA mode: Generate standard RSA keys
+        success = await handleGenerateRsaKey();
       }
       
-      success = await generateEDFromPQ();
-    }
-    else if (keyParams.keyType.startsWith('Rsa')) {
-      // RSA mode: Generate standard RSA keys
-      success = await handleGenerateRsaKey();
-    }
-    
-    if (success) {
-      console.log('Key generation successful. Ready for saving.');
+      if (success) {
+        console.log('Key generation successful. Ready for saving.');
+      }
+    } catch (error) {
+      console.error('Error in key generation:', error);
+      showNotification('Lỗi không xác định khi tạo khóa', 'error');
+    } finally {
+      setIsGeneratingKey(false);
     }
   };
 
@@ -1176,12 +1211,14 @@ const SignatureManagement: React.FC = () => {
                   color="primary"
                   onClick={handleCreateKey}
                   disabled={
+                    isGeneratingKey ||
                     (keyParams.keyType === 'Manual' && (!keyParams.p || !keyParams.q)) || 
                     !keyParams.signatureName
                   }
                   sx={{ minWidth: '100px' }}
+                  startIcon={isGeneratingKey ? <CircularProgress size={20} color="inherit" /> : null}
                 >
-                  Tạo khóa
+                  {isGeneratingKey ? 'Đang tạo...' : 'Tạo khóa'}
                 </Button>
               )}
               <Button 
