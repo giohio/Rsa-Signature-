@@ -257,44 +257,23 @@ const SignatureManagement = () => {
     }
   };
 
-  // Use very simple hardcoded key for auto
-  const generateSimpleKey = () => {
+  // Use backend API to generate key instead of hardcoded values
+  const generateSimpleKey = async () => {
     try {
-      // Get random prime numbers instead of hardcoded values
-      const smallPrimes = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+      // Call the backend API to generate parameters
+      const response = await axios.post('/api/manualsign/generate-params', null, {
+        params: {
+          keySize: 100, // Small key size for educational purposes
+          isEducationalMode: true // Enable educational mode for simpler keys
+        }
+      });
       
-      // Select two different random primes from the list
-      const randomIndex1 = Math.floor(Math.random() * smallPrimes.length);
-      let randomIndex2;
-      do {
-        randomIndex2 = Math.floor(Math.random() * smallPrimes.length);
-      } while (randomIndex2 === randomIndex1);
-      
-      const p = smallPrimes[randomIndex1].toString();
-      const q = smallPrimes[randomIndex2].toString();
+      const { p, q, e, d } = response.data;
       
       // Calculate n = p * q
-      const n = (parseInt(p) * parseInt(q)).toString();
+      const n = (BigInt(p) * BigInt(q)).toString();
       
-      // Choose e from common values (3, 5, 17, 65537)
-      // For small primes, we'll use smaller e values
-      const commonE = [3, 5, 17];
-      const e = commonE[Math.floor(Math.random() * commonE.length)].toString();
-      
-      // Calculate phi(n) = (p-1) * (q-1)
-      const phi = ((parseInt(p) - 1) * (parseInt(q) - 1)).toString();
-      
-      // Calculate d as modular inverse of e mod phi
-      // This is a simplified calculation for educational purposes
-      let d = "0";
-      for (let i = 1; i < 1000; i++) {
-        if ((i * parseInt(e)) % parseInt(phi) === 1) {
-          d = i.toString();
-          break;
-        }
-      }
-      
-      console.log("Generated simple key with values:", { p, q, e, d, n });
+      console.log("Received key parameters from API:", { p, q, e, d, n });
       
       // Format keys as (e,n) and (d,n)
       const publicKeyObj = { e, n };
@@ -320,8 +299,8 @@ const SignatureManagement = () => {
       showNotification(`Khóa đã được tạo thành công với p=${p}, q=${q}`, 'success');
       return true;
     } catch (error) {
-      console.error('Error generating simple key:', error);
-      showNotification('Lỗi tạo khóa đơn giản', 'error');
+      console.error('Error generating key from API:', error);
+      showNotification('Lỗi tạo khóa từ API', 'error');
       return false;
     }
   };
@@ -524,7 +503,7 @@ const SignatureManagement = () => {
   const generateAutoParams = async () => {
     try {
       // Use simple hardcoded key for reliability
-      const success = generateSimpleKey();
+      const success = await generateSimpleKey();
       
       if (success) {
         // Add an additional notification with educational information
