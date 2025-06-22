@@ -129,6 +129,10 @@ namespace RsaSignApi.Services
                 // Validate parameters
                 if (p < 2 || q < 2)
                     return (false, "Tham số p và q phải >= 2", null!, null!, null!);
+                
+                // Check if p equals q
+                if (p == q)
+                    return (false, $"P = {p} và Q = {q} không được giống nhau. Vui lòng chọn hai số nguyên tố khác nhau.", null!, null!, null!);
                     
                 // Check if p and q are prime
                 if (!IsPrime(p))
@@ -136,7 +140,7 @@ namespace RsaSignApi.Services
                     
                 if (!IsPrime(q))
                     return (false, $"Q = {q} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác.", null!, null!, null!);
-                    
+
                 var phi = (p - 1) * (q - 1);
                 
                 if (BigInteger.GreatestCommonDivisor(e, phi) != 1)
@@ -186,6 +190,11 @@ namespace RsaSignApi.Services
                     {
                         var p = BigInteger.Parse(model.P);
                         var q = BigInteger.Parse(model.Q);
+                        
+                        // Check if p equals q
+                        if (p == q)
+                            return (false, $"P = {p} và Q = {q} không được giống nhau. Vui lòng chọn hai số nguyên tố khác nhau.", null!);
+                            
                         n = p * q;
                     }
                     else if (!string.IsNullOrEmpty(model.N))
@@ -427,6 +436,10 @@ namespace RsaSignApi.Services
                 
                 if (pBI < 2 || qBI < 2)
                     return (false, "Tham số p và q phải >= 2", null!, null!);
+                
+                // Check if p equals q
+                if (pBI == qBI)
+                    return (false, $"P = {pBI} và Q = {qBI} không được giống nhau. Vui lòng chọn hai số nguyên tố khác nhau.", null!, null!);
                 
                 // Check if p and q are prime
                 if (!IsPrime(pBI))
@@ -1381,6 +1394,10 @@ namespace RsaSignApi.Services
                 
                 if (pBI < 2 || qBI < 2)
                     return (false, "Tham số p và q phải >= 2", null!);
+                
+                // Check if p equals q
+                if (pBI == qBI)
+                    return (false, $"P = {pBI} và Q = {qBI} không được giống nhau. Vui lòng chọn hai số nguyên tố khác nhau.", null!);
                     
                 var n = pBI * qBI;
                 var phi = (pBI - 1) * (qBI - 1);

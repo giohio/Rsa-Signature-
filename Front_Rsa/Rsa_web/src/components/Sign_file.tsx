@@ -212,7 +212,7 @@ const Sign_file: React.FC = () => {
     }
     
     if (!selectedSignId) {
-      showNotification('Vui lòng chọn chữ ký', 'error');
+      showNotification('Vui lòng chọn khóa', 'error');
       return;
     }
     
@@ -231,7 +231,7 @@ const Sign_file: React.FC = () => {
       const signatureResponse = await axios.get(`${API_URL}/manualsign/get-key-details/${userId}/${selectedSignId}`);
       
       if (!signatureResponse.data || !signatureResponse.data.signature) {
-        showNotification('Không thể lấy thông tin chữ ký', 'error');
+        showNotification('Không thể lấy thông tin khóa', 'error');
         setIsLoading(false);
         return;
       }
@@ -352,7 +352,7 @@ const Sign_file: React.FC = () => {
                   showNotification('Ký văn bản thất bại', 'error');
                 }
               } else {
-                showNotification('Chữ ký không có đủ thông tin n, e, d', 'error');
+                showNotification('Khóa không có đủ thông tin n, e, d', 'error');
                 setIsLoading(false);
                 return;
               }
@@ -456,7 +456,7 @@ const Sign_file: React.FC = () => {
     }
     
     if (!selectedSignId) {
-      showNotification('Vui lòng chọn chữ ký', 'error');
+      showNotification('Vui lòng chọn khóa', 'error');
       return;
     }
     
@@ -564,7 +564,7 @@ const Sign_file: React.FC = () => {
     }
     
     if (!selectedSignId) {
-      showNotification('Vui lòng chọn chữ ký', 'error');
+      showNotification('Vui lòng chọn khóa', 'error');
       return;
     }
     
@@ -783,7 +783,7 @@ const Sign_file: React.FC = () => {
   
   const exportPublicKeyAsFile = async () => {
     if (!selectedSignId) {
-      showNotification('Vui lòng chọn chữ ký', 'error');
+      showNotification('Vui lòng chọn khóa', 'error');
       return;
     }
     try {
@@ -848,7 +848,7 @@ const Sign_file: React.FC = () => {
           
           <Stepper activeStep={signMethod === 'manual' ? 0 : 1} alternativeLabel sx={{ mb: 4 }}>
             <Step completed={Boolean(selectedSignId)}>
-              <StepLabel icon={<KeyIcon color={selectedSignId ? "primary" : "disabled"} />}>Chọn chữ ký</StepLabel>
+              <StepLabel icon={<KeyIcon color={selectedSignId ? "primary" : "disabled"} />}>Chọn khóa</StepLabel>
             </Step>
             <Step completed={signMethod === 'manual' ? Boolean(manualContent) : Boolean(fileToSign)}>
               <StepLabel icon={<DescriptionIcon color={(signMethod === 'manual' ? Boolean(manualContent) : Boolean(fileToSign)) ? "primary" : "disabled"} />}>Chọn văn bản</StepLabel>
@@ -1107,23 +1107,23 @@ const Sign_file: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <KeyIcon sx={{ color: 'primary.main', mr: 1 }} />
               <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                Bước 2: Chọn chữ ký
+                Bước 2: Chọn khóa
           </Typography>
-              <Tooltip title="Chọn chữ ký số để ký văn bản. Bạn cần tạo chữ ký trước trong phần Quản lý chữ ký.">
+              <Tooltip title="Chọn khóa để ký văn bản. Bạn cần tạo khóa trước trong phần Quản lý khóa.">
                 <HelpOutlineIcon sx={{ ml: 1, fontSize: 18, color: 'text.secondary' }} />
               </Tooltip>
             </Box>
           
             <FormControl fullWidth variant="outlined" sx={{ mb: 3 }}>
-            <InputLabel>Chọn chữ ký</InputLabel>
+            <InputLabel>Chọn khóa</InputLabel>
             <Select
               value={selectedSignId}
               onChange={(e) => setSelectedSignId(e.target.value as string)}
-              label="Chọn chữ ký"
+              label="Chọn khóa"
                 startAdornment={<KeyIcon sx={{ mr: 1, color: 'action.active' }} />}
             >
               <MenuItem value="" disabled>
-                <em>Chọn chữ ký</em>
+                <em>Chọn khóa</em>
               </MenuItem>
               {signatures.map((sig) => (
                 <MenuItem key={sig.id} value={sig.id}>
@@ -1226,7 +1226,7 @@ const Sign_file: React.FC = () => {
               <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                 Bước 3: Ký tài liệu
               </Typography>
-              <Tooltip title="Nhấn nút để ký tài liệu bằng chữ ký số đã chọn">
+              <Tooltip title="Nhấn nút để ký tài liệu bằng khóa đã chọn">
                 <HelpOutlineIcon sx={{ ml: 1, fontSize: 18, color: 'text.secondary' }} />
               </Tooltip>
             </Box>
@@ -1235,8 +1235,8 @@ const Sign_file: React.FC = () => {
               isLoading ? "Đang xử lý..." : 
               (!manualContent && signMethod === 'manual') ? "Vui lòng nhập nội dung để ký" :
               (!fileToSign && signMethod === 'file') ? "Vui lòng chọn file để ký" :
-              !selectedSignId ? "Vui lòng chọn chữ ký" :
-              "Ký tài liệu với chữ ký đã chọn"
+              !selectedSignId ? "Vui lòng chọn khóa" :
+              "Ký tài liệu với khóa đã chọn"
             }>
               <span>
           <Button

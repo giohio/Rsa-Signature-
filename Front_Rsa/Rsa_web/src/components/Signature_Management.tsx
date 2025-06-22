@@ -66,7 +66,7 @@ interface Signature {
   d?: string;
 }
 
-const SignatureManagement: React.FC = () => {
+const SignatureManagement = () => {
   const navigate = useNavigate();
   const [signatures, setSignatures] = useState<Signature[]>([]);
   
@@ -120,6 +120,10 @@ const SignatureManagement: React.FC = () => {
     message: '',
     severity: 'info' as 'success' | 'info' | 'warning' | 'error'
   });
+  
+  // State for warning dialog
+  const [openWarningDialog, setOpenWarningDialog] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('');
 
   const fetchList = async () => {
     try {
@@ -131,7 +135,7 @@ const SignatureManagement: React.FC = () => {
       
       // Handle case where signatures might be null or undefined
       if (res.data && Array.isArray(res.data.signatures)) {
-        setSignatures(res.data.signatures);
+      setSignatures(res.data.signatures);
       } else {
         // If no signatures or invalid response, set to empty array
         setSignatures([]);
@@ -354,6 +358,12 @@ const SignatureManagement: React.FC = () => {
     try {
       if (!keyParams.p || !keyParams.q) {
         showNotification('Both P and Q are required to generate E,D values', 'error');
+        return false;
+      }
+      
+      // Check if p equals q before making API call
+      if (keyParams.p === keyParams.q) {
+        showNotification(`P = ${keyParams.p} và Q = ${keyParams.q} không được giống nhau. Vui lòng chọn hai số nguyên tố khác nhau.`, 'error');
         return false;
       }
       
@@ -619,6 +629,87 @@ const SignatureManagement: React.FC = () => {
       showNotification('Vui lòng nhập tên khóa', 'error');
       return;
     }
+
+    // Validate parameters for Manual and Auto modes
+    if (keyParams.keyType === 'Manual' || keyParams.keyType === 'Auto') {
+      try {
+        // Validate p, q are numbers
+        const p = parseInt(keyParams.p);
+        const q = parseInt(keyParams.q);
+        
+        if (isNaN(p) || isNaN(q)) {
+          showNotification('P và Q phải là số nguyên', 'error');
+          return;
+        }
+        
+        // Check if p equals q
+        if (p === q) {
+          showNotification(`P = ${p} và Q = ${q} không được giống nhau. Vui lòng chọn hai số nguyên tố khác nhau.`, 'error');
+          return;
+        }
+
+        // Check if p, q are prime
+        if (!isPrime(p)) {
+          showNotification(`P = ${p} không phải là số nguyên tố. Vui lòng nhập lại hoặc tạo lại khóa.`, 'error');
+          return;
+        }
+        
+        if (!isPrime(q)) {
+          showNotification(`Q = ${q} không phải là số nguyên tố. Vui lòng nhập lại hoặc tạo lại khóa.`, 'error');
+          return;
+        }
+
+        // Validate n = p*q
+        const n = p * q;
+        
+        // Parse keys to check consistency with p, q
+        try {
+          const publicKeyObj = JSON.parse(keyParams.publicKey);
+          const privateKeyObj = JSON.parse(keyParams.privateKey);
+          
+          if (publicKeyObj.n && parseInt(publicKeyObj.n) !== n) {
+            showNotification(`Giá trị n (${publicKeyObj.n}) trong khóa công khai không khớp với p*q=${n}. Vui lòng tạo lại khóa.`, 'error');
+            return;
+          }
+          
+          if (privateKeyObj.n && parseInt(privateKeyObj.n) !== n) {
+            showNotification(`Giá trị n (${privateKeyObj.n}) trong khóa riêng tư không khớp với p*q=${n}. Vui lòng tạo lại khóa.`, 'error');
+            return;
+          }
+          
+          // Calculate phi(n) = (p-1)*(q-1)
+          const phi = (p - 1) * (q - 1);
+          
+          // Check if e and phi are coprime
+          if (publicKeyObj.e) {
+            const e = parseInt(publicKeyObj.e);
+            if (gcd(e, phi) !== 1) {
+              showNotification(`Giá trị e (${e}) không nguyên tố cùng nhau với φ(n)=${phi}. Vui lòng tạo lại khóa.`, 'error');
+              return;
+            }
+          }
+          
+          // Check if d is modular inverse of e
+          if (privateKeyObj.d && publicKeyObj.e) {
+            const d = parseInt(privateKeyObj.d);
+            const e = parseInt(publicKeyObj.e);
+            
+            if ((e * d) % phi !== 1) {
+              showNotification(`Giá trị d (${d}) không phải là nghịch đảo modulo của e (${e}) theo modulo φ(n)=${phi}. Vui lòng tạo lại khóa.`, 'error');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error validating key parameters:', error);
+          showNotification('Lỗi xác thực khóa. Vui lòng tạo lại khóa.', 'error');
+          return;
+        }
+      } catch (error) {
+        console.error('Error validating parameters:', error);
+        showNotification('Lỗi xác thực tham số. Vui lòng tạo lại khóa.', 'error');
+        return;
+      }
+    }
     
     // Save the key
     console.log('Attempting to save key...');
@@ -628,6 +719,28 @@ const SignatureManagement: React.FC = () => {
       setOpenGen(false);
       resetForm();
     }
+  };
+
+  // Helper function to check if a number is prime
+  const isPrime = (num: number): boolean => {
+    if (num <= 1) return false;
+    if (num <= 3) return true;
+    if (num % 2 === 0 || num % 3 === 0) return false;
+    
+    for (let i = 5; i * i <= num; i += 6) {
+      if (num % i === 0 || num % (i + 2) === 0) return false;
+    }
+    return true;
+  };
+
+  // Helper function to calculate greatest common divisor
+  const gcd = (a: number, b: number): number => {
+    while (b !== 0) {
+      const temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
   };
 
   const handleDelete = async (id: string) => {
@@ -823,27 +936,60 @@ const SignatureManagement: React.FC = () => {
   };
 
   const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setKeyParams({
-      ...keyParams,
-      [field]: e.target.value
-    });
+    const newValue = e.target.value;
+    
+    // If p or q is changed, we need to reset the keys
+    if ((field === 'p' || field === 'q') && newValue !== keyParams[field]) {
+      // Update the field
+      setKeyParams({
+        ...keyParams,
+        [field]: newValue,
+        // Reset keys since p or q changed
+        publicKey: '',
+        privateKey: '',
+        e: '',
+        d: '',
+        n: ''
+      });
+      
+      // Only show notification if keys were previously generated
+      if (keyParams.publicKey && keyParams.privateKey && newValue.trim() !== '') {
+        showNotification('Giá trị P hoặc Q đã thay đổi. Vui lòng tạo lại khóa.', 'warning');
+      }
+      
+      setKeySaved(false);
+    } else {
+      // For other fields, just update normally
+      setKeyParams({
+        ...keyParams,
+        [field]: newValue
+      });
+    }
   };
 
   const handleKeyTypeChange = (e: any) => {
+    // Reset all key parameters when changing key type to prevent inconsistencies
     setKeyParams({
-      ...keyParams,
-      keyType: e.target.value as KeyType,
-      // Reset fields when changing key type
       p: '',
       q: '',
       e: '',
       d: '',
+      keyType: e.target.value as KeyType,
       publicKey: '',
       privateKey: '',
-      n: '',
-      signatureName: '',
+      signatureName: keyParams.signatureName, // Preserve the name
+      n: ''
     });
     setKeySaved(false);
+    
+    // Show notification about parameter reset
+    showNotification('Đã đổi loại khóa. Tất cả tham số đã được đặt lại, vui lòng tạo khóa mới.', 'info');
+  };
+
+  // Function to show warning dialog
+  const showWarningDialog = (message: string) => {
+    setWarningMessage(message);
+    setOpenWarningDialog(true);
   };
 
   const showNotification = (message: string, severity: 'success' | 'info' | 'warning' | 'error') => {
@@ -852,6 +998,15 @@ const SignatureManagement: React.FC = () => {
       message,
       severity
     });
+    
+    // For important warnings, also show a dialog
+    if (severity === 'warning' && (
+      message.includes('không khớp') || 
+      message.includes('không phải là số nguyên tố') ||
+      message.includes('không nhất quán')
+    )) {
+      showWarningDialog(message);
+    }
   };
 
   const handleCloseNotification = () => {
@@ -937,8 +1092,34 @@ const SignatureManagement: React.FC = () => {
           // Set p and q if available
           pValue = fullSignature.p || '';
           qValue = fullSignature.q || '';
+          
+          // Validate parameters for Manual and Auto modes
+          if ((fullSignature.signatureType === 'Manual' || fullSignature.signatureType === 'Auto') && 
+              pValue && qValue) {
+            // Parse p and q as integers
+            const p = parseInt(pValue);
+            const q = parseInt(qValue);
+            
+            // Check if p and q are valid prime numbers
+            if (!isPrime(p)) {
+              showNotification(`Cảnh báo: P = ${p} không phải là số nguyên tố. Khóa có thể không an toàn.`, 'warning');
+            }
+            
+            if (!isPrime(q)) {
+              showNotification(`Cảnh báo: Q = ${q} không phải là số nguyên tố. Khóa có thể không an toàn.`, 'warning');
+            }
+            
+            // Calculate n = p*q and check if it matches the n in the keys
+            const calculatedN = p * q;
+            const keyN = parseInt(nValue);
+            
+            if (calculatedN !== keyN) {
+              showNotification(`Cảnh báo: Giá trị n (${keyN}) không khớp với p*q=${calculatedN}. Khóa có thể không nhất quán.`, 'warning');
+            }
+          }
         } catch (error) {
-          console.error('Error parsing key data:', error);
+          console.error('Error parsing or validating key data:', error);
+          showNotification('Có lỗi khi xác thực khóa. Vui lòng kiểm tra tham số trước khi lưu.', 'warning');
         }
         
         // Set form values
@@ -1328,6 +1509,10 @@ const SignatureManagement: React.FC = () => {
                       value={keyParams.p}
                       onChange={handleInputChange('p')}
                       disabled={keyParams.keyType === 'Auto' || isEditMode}
+                      InputProps={{
+                        readOnly: isEditMode,
+                      }}
+                      helperText={isEditMode ? "Không thể thay đổi P trong chế độ chỉnh sửa" : ""}
                     />
                     
                     <TextField
@@ -1337,6 +1522,10 @@ const SignatureManagement: React.FC = () => {
                       value={keyParams.q}
                       onChange={handleInputChange('q')}
                       disabled={keyParams.keyType === 'Auto' || isEditMode}
+                      InputProps={{
+                        readOnly: isEditMode,
+                      }}
+                      helperText={isEditMode ? "Không thể thay đổi Q trong chế độ chỉnh sửa" : ""}
                     />
                   </>
                 )}
@@ -1505,6 +1694,29 @@ const SignatureManagement: React.FC = () => {
               {notification.message}
             </Alert>
           </Snackbar>
+
+          {/* Warning Dialog for key parameter inconsistencies */}
+          <Dialog
+            open={openWarningDialog}
+            onClose={() => setOpenWarningDialog(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>Cảnh báo về tính nhất quán của khóa</DialogTitle>
+            <DialogContent>
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                {warningMessage}
+              </Alert>
+              <Typography variant="body1" sx={{ mt: 2 }}>
+                Khi chỉnh sửa khóa, các tham số P, Q, E, D và N phải nhất quán với nhau. Nếu bạn thay đổi P hoặc Q, hãy tạo lại khóa để đảm bảo tính toàn vẹn.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setOpenWarningDialog(false)} color="primary">
+                Đã hiểu
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       </Container>
     </>
