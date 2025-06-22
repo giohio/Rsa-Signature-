@@ -1337,7 +1337,7 @@ namespace RsaSignApi.Services
                         bool isValid = decryptedHash.Equals(hashInt);
 
                         return isValid
-                            ? (true, "Chữ ký tệp hợp lệ")
+                            ? (true, "Văn bản toàn vẹn. Chữ ký không bị thay đổi.")
                             : (false, $"Chữ ký tệp không hợp lệ. Giá trị băm hiện tại: {Convert.ToBase64String(hashBytes)}");
                     }
                     catch (Exception ex)
@@ -1362,7 +1362,7 @@ namespace RsaSignApi.Services
                         bool isValid = rsa.VerifyHash(hashBytes, signatureBytes, rsaHashAlgo, RSASignaturePadding.Pkcs1);
 
                         return isValid
-                            ? (true, "Chữ ký tệp hợp lệ")
+                            ? (true, "Văn bản toàn vẹn. Chữ ký không bị thay đổi.")
                             : (false, $"Chữ ký tệp không hợp lệ. Giá trị băm hiện tại: {Convert.ToBase64String(hashBytes)}");
                     }
                     catch (Exception ex)

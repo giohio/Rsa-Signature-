@@ -45,6 +45,8 @@ interface VerificationResult {
   isValid: boolean;
   message: string;
   tamperedDetected?: boolean;
+  documentModified?: boolean; // Flag to indicate document content was modified
+  signatureModified?: boolean; // Flag to indicate signature was modified
   fullName?: string; // Thêm để khắc phục lỗi TypeScript 2339
   email?: string; // Thêm để khắc phục lỗi TypeScript 2339
   metadata?: {
@@ -311,18 +313,35 @@ const Verify_file: React.FC = () => {
         reader.onload = (e) => {
           try {
             const content = e.target?.result as string;
-            // For .sig, .txt, .json: just use the raw content (no JSON parsing)
-            setSignature(content.trim());
+            // Validate the signature content
+            const trimmedContent = content.trim();
+            if (!trimmedContent) {
+              setSignatureError('Chữ ký không được để trống');
+              showNotification('Chữ ký không được để trống', 'error');
+              return;
+            }
+            
+            if (!isValidBase64(trimmedContent)) {
+              setSignatureError('Chữ ký không đúng định dạng Base64');
+              showNotification('Chữ ký không đúng định dạng Base64', 'error');
+              return;
+            }
+            
+            setSignature(trimmedContent);
+            setSignatureError(null);
             showNotification('Chữ ký đã được tải thành công từ file', 'success');
           } catch (error) {
-            showNotification('Không thể đọc file chữ ký', 'error');
+            setSignatureError('Không thể đọc nội dung file chữ ký');
+            showNotification('Không thể đọc nội dung file chữ ký', 'error');
           }
         };
         reader.onerror = () => {
-          showNotification('Lỗi khi đọc file', 'error');
+          setSignatureError('Lỗi khi đọc file chữ ký');
+          showNotification('Lỗi khi đọc file chữ ký', 'error');
         };
         reader.readAsText(file);
       } catch (error) {
+        setSignatureError('Không thể đọc file chữ ký');
         showNotification('Không thể đọc file chữ ký', 'error');
       }
     }
@@ -448,8 +467,9 @@ const Verify_file: React.FC = () => {
               errorMsg.toLowerCase().includes('thay đổi') ||
               errorMsg.toLowerCase().includes('sửa đổi') ||
               errorMsg.toLowerCase().includes('tampered')) {
-            // Mark result as tampered
+            // Mark result as tampered document
             response.data.tamperedDetected = true;
+            response.data.documentModified = true; // Add this flag to indicate document tampering
             
             // Try to extract hash information if available
             const originalHashMatch = errorMsg.match(/original hash:?\s*([a-zA-Z0-9+/=]+)/i);
@@ -460,11 +480,12 @@ const Verify_file: React.FC = () => {
               response.data.metadata.currentHash = currentHashMatch[1];
             }
             
-            showNotification('Phát hiện văn bản đã bị chỉnh sửa sau khi ký!', 'error');
+            showNotification('Phát hiện văn bản hoặc chữ ký đã bị chỉnh sửa sau khi ký!', 'error');
           } else if (errorMsg.toLowerCase().includes('chữ ký không hợp lệ') || 
                     errorMsg.toLowerCase().includes('invalid signature')) {
             // This is a case where the signature itself was modified
             response.data.tamperedDetected = true;
+            response.data.signatureModified = true; // Add this flag to indicate signature tampering
             showNotification('Chữ ký đã bị thay đổi hoặc không khớp với văn bản!', 'error');
           } else {
             showNotification(errorMsg || 'Xác thực chữ ký thất bại', 'warning');
@@ -738,32 +759,39 @@ const Verify_file: React.FC = () => {
                               onDelete={() => {
                                 setSignatureFileName('');
                                 setSignature('');
+                                setSignatureError(null);
                               }}
                               size="small"
                               sx={{ mb: 1 }}
                             />
-                            {signature && (
-                              <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f0f0f0', borderRadius: 1, flex: 1, minHeight: 0 }}>
-                                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
-                                  Nội dung chữ ký:
-                                </Typography>
-                                <Box 
-                                  sx={{ 
-                                    p: 1, 
-                                    bgcolor: '#fff', 
-                                    borderRadius: 1, 
-                                    height: '100px', 
-                                    overflow: 'auto',
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.75rem',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-all'
-                                  }}
-                                >
-                                  {getSignaturePreview(signature)}
-                                </Box>
-                              </Paper>
-                            )}
+                            <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f0f0f0', borderRadius: 1, flex: 1, minHeight: 0 }}>
+                              {signatureError ? (
+                                <Alert severity="error" sx={{ mb: 0 }}>
+                                  {signatureError}
+                                </Alert>
+                              ) : (
+                                <>
+                                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                                    Nội dung chữ ký:
+                                  </Typography>
+                                  <Box 
+                                    sx={{ 
+                                      p: 1, 
+                                      bgcolor: '#fff', 
+                                      borderRadius: 1, 
+                                      height: '100px', 
+                                      overflow: 'auto',
+                                      fontFamily: 'monospace',
+                                      fontSize: '0.75rem',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-all'
+                                    }}
+                                  >
+                                    {getSignaturePreview(signature)}
+                                  </Box>
+                                </>
+                              )}
+                            </Paper>
                           </>
                         )}
                       </Box>
@@ -793,7 +821,7 @@ const Verify_file: React.FC = () => {
                     
                     {publicKeySource === 'select' ? (
                       <FormControl>
-                        <InputLabel>Chọn chữ ký</InputLabel>
+                        <InputLabel>Chọn khóa</InputLabel>
                         <Select
                           value={selectedSignatureId}
                           onChange={handleSignatureChange_Select as any}
@@ -1066,14 +1094,14 @@ const Verify_file: React.FC = () => {
           >
             <AlertTitle>
               {verificationResult.isValid ? 'Hợp lệ' : 
-               verificationResult.tamperedDetected ? 'Tài liệu đã bị sửa đổi' : 'Không hợp lệ'}
+               verificationResult.documentModified ? 'Tài liệu hoặc chữ ký đã bị sửa đổi' :
+               verificationResult.signatureModified ? 'Chữ ký đã bị thay đổi' : 
+               verificationResult.tamperedDetected ? 'Tài liệu hoặc chữ ký đã bị sửa đổi' : 'Không hợp lệ'}
             </AlertTitle>
-            {verificationResult.tamperedDetected ? 
-              (verificationResult.message?.toLowerCase().includes('chữ ký') || 
-               verificationResult.message?.toLowerCase().includes('signature') ? 
-                'Chữ ký đã bị thay đổi hoặc không khớp với văn bản!' : 
-                'Nội dung tài liệu đã bị thay đổi sau khi ký.') : 
-              verificationResult.message}
+            {verificationResult.documentModified ? 'Nội dung tài liệu hoặc chữ ký đã bị thay đổi sau khi ký.' :
+             verificationResult.signatureModified ? 'Chữ ký đã bị thay đổi hoặc không khớp với văn bản!' :
+             verificationResult.tamperedDetected ? 'Phát hiện dấu hiệu giả mạo trong tài liệu hoặc chữ ký.' :
+             verificationResult.message}
           </Alert>
 
           {/* Display FullName and Email */}

@@ -344,7 +344,7 @@ namespace RsaSignApi.Services
                         email = eValue;
 
                     _logger.LogInformation($"Parsed FullName: {fullName}, Email: {email}");
-                    return (true, "PDF signature is valid", true, fullName ?? string.Empty, email ?? string.Empty);
+                    return (true, "Văn bản toàn vẹn. Chữ ký không bị thay đổi. Thông tin được ký là hợp lệ.", true, fullName ?? string.Empty, email ?? string.Empty);
                 }
                 else
                 {
