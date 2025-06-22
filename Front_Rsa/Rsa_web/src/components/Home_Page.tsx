@@ -15,7 +15,7 @@ const HomePage: React.FC = () => (
     <AppBar position="static">
       <Toolbar>
         <LinkIcon sx={{ mr: 1 }} />
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+        <Typography variant="h6" sx={{ flexGrow: 1, cursor: 'pointer', fontWeight: 'bold' }}>
           RSA DIGITAL SIGNATURE
         </Typography>
         <IconButton edge="end" color="inherit">
@@ -38,8 +38,8 @@ const HomePage: React.FC = () => (
         {[
           {
             icon: <LinkIcon fontSize="large" color="primary" />,
-            title: 'Quản lý Chữ ký',
-            desc: 'Tạo, chỉnh sửa và quản lý các chữ ký số của bạn',
+            title: 'Quản lý khóa',
+            desc: 'Tạo, chỉnh sửa và quản lý các khóa RSA của bạn',
             color: 'primary' as const, link: '/signatures'
           },
           {

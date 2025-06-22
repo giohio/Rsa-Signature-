@@ -130,13 +130,20 @@ namespace RsaSignApi.Services
                 if (p < 2 || q < 2)
                     return (false, "Tham số p và q phải >= 2", null!, null!, null!);
                     
+                // Check if p and q are prime
+                if (!IsPrime(p))
+                    return (false, $"P = {p} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác.", null!, null!, null!);
+                    
+                if (!IsPrime(q))
+                    return (false, $"Q = {q} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác.", null!, null!, null!);
+                    
                 var phi = (p - 1) * (q - 1);
                 
                 if (BigInteger.GreatestCommonDivisor(e, phi) != 1)
-                    return (false, "e và phi(n) không nguyên tố cùng nhau", null!, null!, null!);
+                    return (false, $"e = {e} và phi(n) = {phi} không nguyên tố cùng nhau. Vui lòng chọn giá trị e khác.", null!, null!, null!);
                     
                 if ((e * d) % phi != 1)
-                    return (false, "e và d không phải là nghịch đảo modulo", null!, null!, null!);
+                    return (false, $"e = {e} và d = {d} không phải là nghịch đảo modulo phi(n) = {phi}. Vui lòng kiểm tra lại.", null!, null!, null!);
                 
                 // Create JSON format keys that only use e, n, d
                 var publicKeyJson = JsonSerializer.Serialize(new Dictionary<string, string>
@@ -420,6 +427,13 @@ namespace RsaSignApi.Services
                 
                 if (pBI < 2 || qBI < 2)
                     return (false, "Tham số p và q phải >= 2", null!, null!);
+                
+                // Check if p and q are prime
+                if (!IsPrime(pBI))
+                    return (false, $"P = {pBI} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác.", null!, null!);
+                    
+                if (!IsPrime(qBI))
+                    return (false, $"Q = {qBI} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác.", null!, null!);
                 
                 var phi = (pBI - 1) * (qBI - 1);
                 

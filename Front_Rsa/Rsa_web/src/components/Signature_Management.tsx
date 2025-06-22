@@ -47,6 +47,9 @@ axios.interceptors.response.use(
   }
 );
 
+// Add a type for keyType
+type KeyType = 'Manual' | 'Auto' | 'Rsa2048' | 'Rsa3072' | 'Rsa4096';
+
 interface Signature {
   id: string;
   publicKey: string;
@@ -84,7 +87,7 @@ const SignatureManagement: React.FC = () => {
     q: '',
     e: '',
     d: '',
-    keyType: 'Manual',
+    keyType: 'Manual' as KeyType,
     publicKey: '',
     privateKey: '',
     signatureName: '',
@@ -125,9 +128,19 @@ const SignatureManagement: React.FC = () => {
       const res = await axios.get<{ signatures: Signature[] }>(
         `${API_URL}/sign/list/${userId}`
       );
-      setSignatures(res.data.signatures);
+      
+      // Handle case where signatures might be null or undefined
+      if (res.data && Array.isArray(res.data.signatures)) {
+        setSignatures(res.data.signatures);
+      } else {
+        // If no signatures or invalid response, set to empty array
+        setSignatures([]);
+        console.log('No signatures found or invalid response format');
+      }
     } catch (err) {
       console.error(err);
+      // Set signatures to empty array on error
+      setSignatures([]);
       showNotification('Failed to fetch signatures', 'error');
     }
   };
@@ -243,12 +256,39 @@ const SignatureManagement: React.FC = () => {
   // Use very simple hardcoded key for auto
   const generateSimpleKey = () => {
     try {
-      // Hardcoded simple values for testing
-      const p = "11";
-      const q = "13";
-      const n = "143";
-      const e = "7";
-      const d = "103";  // Modular inverse of 7 mod 120
+      // Get random prime numbers instead of hardcoded values
+      const smallPrimes = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+      
+      // Select two different random primes from the list
+      const randomIndex1 = Math.floor(Math.random() * smallPrimes.length);
+      let randomIndex2;
+      do {
+        randomIndex2 = Math.floor(Math.random() * smallPrimes.length);
+      } while (randomIndex2 === randomIndex1);
+      
+      const p = smallPrimes[randomIndex1].toString();
+      const q = smallPrimes[randomIndex2].toString();
+      
+      // Calculate n = p * q
+      const n = (parseInt(p) * parseInt(q)).toString();
+      
+      // Choose e from common values (3, 5, 17, 65537)
+      // For small primes, we'll use smaller e values
+      const commonE = [3, 5, 17];
+      const e = commonE[Math.floor(Math.random() * commonE.length)].toString();
+      
+      // Calculate phi(n) = (p-1) * (q-1)
+      const phi = ((parseInt(p) - 1) * (parseInt(q) - 1)).toString();
+      
+      // Calculate d as modular inverse of e mod phi
+      // This is a simplified calculation for educational purposes
+      let d = "0";
+      for (let i = 1; i < 1000; i++) {
+        if ((i * parseInt(e)) % parseInt(phi) === 1) {
+          d = i.toString();
+          break;
+        }
+      }
       
       console.log("Generated simple key with values:", { p, q, e, d, n });
       
@@ -273,13 +313,41 @@ const SignatureManagement: React.FC = () => {
         privateKey: privateKeyStr
       }));
       
-      showNotification('Khóa đã được tạo thành công', 'success');
+      showNotification(`Khóa đã được tạo thành công với p=${p}, q=${q}`, 'success');
       return true;
     } catch (error) {
       console.error('Error generating simple key:', error);
       showNotification('Lỗi tạo khóa đơn giản', 'error');
       return false;
     }
+  };
+
+  // Add this function to suggest prime numbers
+  const suggestPrimes = (start: number = 10, count: number = 5): number[] => {
+    const primes: number[] = [];
+    let num = start;
+    
+    // Simple prime check function
+    const isPrime = (n: number): boolean => {
+      if (n <= 1) return false;
+      if (n <= 3) return true;
+      if (n % 2 === 0 || n % 3 === 0) return false;
+      
+      for (let i = 5; i * i <= n; i += 6) {
+        if (n % i === 0 || n % (i + 2) === 0) return false;
+      }
+      return true;
+    };
+    
+    // Find the next 'count' prime numbers starting from 'start'
+    while (primes.length < count) {
+      if (isPrime(num)) {
+        primes.push(num);
+      }
+      num++;
+    }
+    
+    return primes;
   };
 
   const generateEDFromPQ = async () => {
@@ -302,7 +370,7 @@ const SignatureManagement: React.FC = () => {
       console.log('Generate E,D response:', response.data);
       
       if (!response.data || !response.data.e || !response.data.d) {
-        showNotification('Failed to generate E,D values', 'error');
+        showNotification('Không thể tạo khóa E,D', 'error');
         return false;
       }
       
@@ -334,9 +402,29 @@ const SignatureManagement: React.FC = () => {
       
       showNotification('Khóa được tạo thành công', 'success');
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating E,D:', error);
-      showNotification('Failed to generate E,D values', 'error');
+      
+      // Extract more detailed error message from the response
+      let errorMessage = 'Không thể tạo khóa E,D';
+      
+      if (error.response && error.response.data) {
+        if (error.response.data.error) {
+          // Check for specific prime number validation errors
+          const errorText = error.response.data.error;
+          if (errorText.includes('không phải là số nguyên tố')) {
+            // Suggest some prime numbers
+            const startValue = parseInt(keyParams.p || keyParams.q || '10');
+            const suggestedPrimes = suggestPrimes(startValue > 5 ? startValue : 10);
+            
+            errorMessage = `${errorText} Gợi ý các số nguyên tố: ${suggestedPrimes.join(', ')}`;
+          } else {
+            errorMessage = `Lỗi: ${errorText}`;
+          }
+        }
+      }
+      
+      showNotification(errorMessage, 'error');
       return false;
     }
   };
@@ -426,7 +514,31 @@ const SignatureManagement: React.FC = () => {
   const generateAutoParams = async () => {
     try {
       // Use simple hardcoded key for reliability
-      return generateSimpleKey();
+      const success = generateSimpleKey();
+      
+      if (success) {
+        // Add an additional notification with educational information
+        const pValue = parseInt(keyParams.p);
+        const qValue = parseInt(keyParams.q);
+        const nValue = pValue * qValue;
+        const phiValue = (pValue - 1) * (qValue - 1);
+        
+//         const infoMessage = `Thông tin khóa:
+// - p = ${keyParams.p} (số nguyên tố)
+// - q = ${keyParams.q} (số nguyên tố)
+// - n = p×q = ${nValue}
+// - φ(n) = (p-1)×(q-1) = ${phiValue}
+// - e = ${keyParams.e} (nguyên tố cùng nhau với φ(n))
+// - d = ${keyParams.d} (nghịch đảo modulo của e theo modulo φ(n))`;
+        
+//         console.log(infoMessage);
+        // Show a delayed informational message with the key details
+        // setTimeout(() => {
+        //   showNotification(infoMessage, 'info');
+        // }, 1000);
+      }
+      
+      return success;
     } catch (error) {
       console.error('Auto parameters error:', error);
       showNotification('Lỗi tạo tham số khóa tự động', 'error');
@@ -452,6 +564,7 @@ const SignatureManagement: React.FC = () => {
         // Manual mode: Generate E,D from P,Q
         if (!keyParams.p || !keyParams.q) {
           showNotification('Vui lòng nhập giá trị P và Q', 'error');
+          setIsGeneratingKey(false);
           return;
         }
         
@@ -465,9 +578,21 @@ const SignatureManagement: React.FC = () => {
       if (success) {
         console.log('Key generation successful. Ready for saving.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in key generation:', error);
-      showNotification('Lỗi không xác định khi tạo khóa', 'error');
+      
+      // Extract detailed error message if available
+      let errorMessage = 'Lỗi không xác định khi tạo khóa';
+      
+      if (error.response && error.response.data) {
+        if (error.response.data.error) {
+          errorMessage = `Lỗi: ${error.response.data.error}`;
+        }
+      } else if (error.message) {
+        errorMessage = `Lỗi: ${error.message}`;
+      }
+      
+      showNotification(errorMessage, 'error');
     } finally {
       setIsGeneratingKey(false);
     }
@@ -509,8 +634,16 @@ const SignatureManagement: React.FC = () => {
     try {
       const userId = localStorage.getItem('userId')!;
       await axios.delete(`${API_URL}/sign/delete/${userId}/${id}`);
-      fetchList();
+      
+      // After successful deletion, update the local state instead of fetching again
+      setSignatures(prev => prev.filter(sig => sig.id !== id));
       showNotification('Signature deleted successfully', 'success');
+      
+      // Only fetch the list if there are signatures left
+      // This avoids the error when deleting the last signature
+      if (signatures.length > 1) {
+        await fetchList();
+      }
     } catch (error) {
       console.error(error);
       showNotification('Failed to delete signature', 'error');
@@ -699,7 +832,7 @@ const SignatureManagement: React.FC = () => {
   const handleKeyTypeChange = (e: any) => {
     setKeyParams({
       ...keyParams,
-      keyType: e.target.value,
+      keyType: e.target.value as KeyType,
       // Reset fields when changing key type
       p: '',
       q: '',
@@ -734,7 +867,7 @@ const SignatureManagement: React.FC = () => {
       q: '',
       e: '',
       d: '',
-      keyType: 'Manual',
+      keyType: 'Manual' as KeyType,
       publicKey: '',
       privateKey: '',
       signatureName: '',
@@ -815,7 +948,7 @@ const SignatureManagement: React.FC = () => {
           e: eValue,
           d: dValue,
           n: nValue,
-          keyType: fullSignature.signatureType || 'Manual',
+          keyType: (fullSignature.signatureType || 'Manual') as KeyType,
           publicKey: fullSignature.publicKey || '',
           privateKey: fullSignature.privateKey || '',
           signatureName: fullSignature.signatureName || ''
@@ -1022,6 +1155,32 @@ const SignatureManagement: React.FC = () => {
     setSignature('');
   };
 
+  // Add this function to fetch prime numbers from the server
+  const fetchPrimeNumbers = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/manualsign/generate-small-primes?max=100&count=10`);
+      
+      if (response.data && response.data.primes && response.data.primes.length > 0) {
+        const primes = response.data.primes;
+        showNotification(`Đã lấy ${primes.length} số nguyên tố: ${primes.join(', ')}`, 'info');
+        
+        // If we have at least 2 primes, suggest them for p and q
+        if (primes.length >= 2) {
+          setKeyParams(prev => ({
+            ...prev,
+            p: primes[0].toString(),
+            q: primes[1].toString()
+          }));
+        }
+      } else {
+        showNotification('Không thể lấy số nguyên tố từ máy chủ', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching prime numbers:', error);
+      showNotification('Lỗi khi lấy số nguyên tố từ máy chủ', 'error');
+    }
+  };
+
   return (
     <>
       <AppBar position="static">
@@ -1029,7 +1188,7 @@ const SignatureManagement: React.FC = () => {
           <LinkIcon sx={{ mr: 1 }} />
           <Typography 
             variant="h6" 
-            sx={{ flexGrow: 1, cursor: 'pointer' }} 
+            sx={{ flexGrow: 1, cursor: 'pointer', fontWeight: 'bold' }} 
             onClick={goToHome}
           >
             RSA DIGITAL SIGNATURE
@@ -1043,7 +1202,7 @@ const SignatureManagement: React.FC = () => {
       <Container>
         <Box p={4}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h5">Quản lý Chữ ký</Typography>
+            <Typography variant="h5">Quản lý khóa</Typography>
             <Stack direction="row" spacing={2}>
               <Button
                 variant="contained"
@@ -1053,7 +1212,7 @@ const SignatureManagement: React.FC = () => {
                   setOpenGen(true);
                 }}
               >
-                Thêm chữ ký
+                Thêm khóa
               </Button>
               <Button
                 variant="outlined"
@@ -1154,7 +1313,7 @@ const SignatureManagement: React.FC = () => {
                   disabled={isEditMode} // Disable type change in edit mode
                 >
                   <MenuItem value="Manual">Thủ công</MenuItem>
-                  <MenuItem value="Auto">Tự động</MenuItem>
+                  <MenuItem value="Auto">Tự động (số nguyên tố ngẫu nhiên)</MenuItem>
                   <MenuItem value="Rsa2048">RSA 2048</MenuItem>
                   <MenuItem value="Rsa3072">RSA 3072</MenuItem>
                   <MenuItem value="Rsa4096">RSA 4096</MenuItem>

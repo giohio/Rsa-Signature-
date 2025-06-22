@@ -32,6 +32,22 @@ namespace RsaSignApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            // Add prime number validation
+            try {
+                BigInteger p = BigInteger.Parse(model.P);
+                BigInteger q = BigInteger.Parse(model.Q);
+                
+                // Check if p and q are prime
+                if (!IsPrime(p))
+                    return BadRequest(new { error = $"P = {model.P} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác." });
+                    
+                if (!IsPrime(q))
+                    return BadRequest(new { error = $"Q = {model.Q} không phải là số nguyên tố. Vui lòng nhập một số nguyên tố khác." });
+            }
+            catch (Exception ex) {
+                return BadRequest(new { error = $"Lỗi kiểm tra số nguyên tố: {ex.Message}" });
+            }
+
             var result = await _manualSignService.GenerateEDFromPQAsync(model);
             if (!result.Success)
                 return BadRequest(new { error = result.Message });
@@ -42,6 +58,23 @@ namespace RsaSignApi.Controllers
                 e = result.E,
                 d = result.D
             });
+        }
+
+        // Add helper method for prime checking
+        private bool IsPrime(BigInteger n)
+        {
+            if (n <= 1) return false;
+            if (n == 2 || n == 3) return true;
+            if (n % 2 == 0 || n % 3 == 0) return false;
+            
+            // Check up to the square root
+            for (BigInteger i = 5; i * i <= n; i += 6)
+            {
+                if (n % i == 0 || n % (i + 2) == 0)
+                    return false;
+            }
+            
+            return true;
         }
 
         [HttpPost("generate-keypair")]
